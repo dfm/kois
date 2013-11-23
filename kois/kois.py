@@ -6,6 +6,7 @@ from __future__ import (division, print_function, absolute_import,
 
 __all__ = ["load_system", "LightCurve", "Model"]
 
+import logging
 import numpy as np
 
 import kplr
@@ -17,17 +18,26 @@ from bart.data import LightCurve
 from . import _kois
 
 
-def load_system(koi_id):
+def load_system(koi_id, lc_window_factor=4, sc_window_factor=4,
+                detrend_window_factor=1.5, min_dataset_size=50, poly_order=1,
+                ldp_nbins=100):
     client = kplr.API()
+
+    logging.info("Getting the catalog parameters for KOI {0}.XX"
+                 .format(koi_id))
     kois = sorted(client.koi("{0}.01".format(koi_id)).star.kois,
                   key=lambda k: k.kepoi_name)
+    if not len(kois):
+        raise RuntimeError("No KOIs listed in the ctalog with ID '{0}'"
+                           .format(koi_id))
 
     # Set up the initial limb-darkening profile.
     mu1, mu2 = get_quad_coeffs(kois[0].koi_steff)
-    ldp = bart.ld.QuadraticLimbDarkening(mu1, mu2, 100)
+    ldp = bart.ld.QuadraticLimbDarkening(mu1, mu2, ldp_nbins)
 
     # Set up the model.
-    model = Model(ldp)
+    model = Model(ldp, epoch_tol=sc_window_factor,
+                  period_tol=sc_window_factor*3e-4)
 
     # Loop over KOIs and add the initial values to the model.
     for koi in kois:
@@ -41,24 +51,38 @@ def load_system(koi_id):
         model.add_koi(P, t0, koi.koi_duration/24., koi.koi_ror, koi.koi_impact)
 
     # Load the light curves.
-    lcs = koi.get_light_curves(short_cadence=False)
+    logging.info("Loading datasets")
+    lcs = koi.get_light_curves()
     datasets = []
     for lc in lcs:
         data = lc.read()
         m = data["SAP_QUALITY"] == 0
+        texp = (kplr.EXPOSURE_TIMES[1] if lc.sci_archive_class == "CLC"
+                else kplr.EXPOSURE_TIMES[0])
+        factor = (lc_window_factor if lc.sci_archive_class == "CLC"
+                  else sc_window_factor)
         data = KOILightCurve(data["TIME"][m],
                              data["PDCSAP_FLUX"][m],
-                             data["PDCSAP_FLUX_ERR"][m])
-        datasets += data.active_window(model.periods, model.epochs,
-                                       4*model.durations).autosplit()
+                             data["PDCSAP_FLUX_ERR"][m], texp=texp,
+                             K=3 if lc.sci_archive_class == "CLC" else 1)
+        datasets += (data.active_window(model.periods, model.epochs,
+                                        factor*model.durations)
+                     .autosplit())
 
     # Remove datasets with not enough data points.
-    datasets = [d for d in datasets if len(d.time) > 50]
+    datasets = [d for d in datasets if len(d.time) > min_dataset_size]
+    if not len(datasets):
+        raise RuntimeError("No datasets survived the cuts.")
+    logging.info("{0} datasets were found and trimmed".format(len(datasets)))
 
     # De-trend the data.
     model.datasets += [d for d in datasets
                        if d.remove_polynomial(model.periods, model.epochs,
-                                              1.5*model.durations, 1)]
+                                              detrend_window_factor
+                                              * model.durations, poly_order)]
+    logging.info("{0} datasets were de-trended".format(len(model.datasets)))
+    if not len(datasets):
+        raise RuntimeError("No datasets could be de-trended.")
 
     return model
 
@@ -85,7 +109,7 @@ class KOILightCurve(LightCurve):
 
 class Model(object):
 
-    def __init__(self, ldp):
+    def __init__(self, ldp, epoch_tol=1.0, period_tol=7e-4):
         self.ldp = ldp
         self.datasets = []
 
@@ -95,6 +119,9 @@ class Model(object):
         self.rors = np.empty(0)
         self.impacts = np.empty(0)
 
+        self.epoch_tol = epoch_tol
+        self.period_tol = period_tol
+
     @property
     def vector(self):
         return np.concatenate(([self.ldp.gamma1, self.ldp.gamma2],
@@ -103,7 +130,6 @@ class Model(object):
 
     @vector.setter
     def vector(self, v):
-        p = np.array(self.periods)
         self.ldp.gamma1, self.ldp.gamma2 = v[:2]
         self.periods, self.epochs, self.durations, self.rors, self.impacts \
             = v[2:].reshape([-1, len(self.periods)])
@@ -115,6 +141,11 @@ class Model(object):
         self.rors = np.append(self.rors, ror)
         self.impacts = np.append(self.impacts, impact)
 
+        # Save the initial values for use in the prior.
+        self.initial_periods = np.array(self.periods)
+        self.initial_epochs = np.array(self.epochs)
+        self.initial_durations = np.array(self.durations)
+
     def get_light_curve(self, t, K=1, texp=0):
         return _kois.light_curve(t, K, texp, self.periods, self.epochs,
                                  self.durations, self.rors, self.impacts,
@@ -125,14 +156,31 @@ class Model(object):
                     for lc in self.datasets])
 
     def lnprior(self):
+        # Physical limb-darkening priors.
         u1, u2 = self.ldp.gamma1, self.ldp.gamma2
         if u1 < 0.0 or u1+u2 > 1.0 or u1+2*u2 < 0:
             return -np.inf
 
-        if np.any(self.impacts < 0) or np.any(self.impacts > 1):
+        # Physical priors on other parameters.
+        if np.any(self.periods < 0):
+            return -np.inf
+        if (np.any(self.epochs < -self.periods) or
+                np.any(self.epochs > self.periods)):
+            return -np.inf
+        if np.any(self.impacts < 0) or np.any(self.impacts-self.rors > 1):
+            return -np.inf
+        if np.any(self.durations < 0):
+            return -np.inf
+        if np.any(self.rors < 0) or np.any(self.rors > 1):
             return -np.inf
 
-        if np.any(self.durations < 0):
+        # Priors based on trimming of the datasets.
+        if np.any(np.abs(self.epochs-self.initial_epochs) >
+                  self.epoch_tol * self.initial_durations):
+            return -np.inf
+        if np.any(np.abs(self.periods-self.initial_periods)
+                  / self.initial_periods >
+                  self.period_tol * self.initial_durations):
             return -np.inf
 
         return 0.0

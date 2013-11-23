@@ -1,0 +1,98 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+import os
+import sys
+import emcee
+import logging
+import numpy as np
+import cPickle as pickle
+from emcee.utils import MPIPool
+
+import argparse
+parser = argparse.ArgumentParser(description="Build a KOI model")
+parser.add_argument("model", help="The path to the model file")
+parser.add_argument("-n", "--nsteps", default=5000, type=int,
+                    help="The number of steps of MCMC to run")
+parser.add_argument("-w", "--nwalkers", default=None, type=int,
+                    help="The number of walkers to use")
+parser.add_argument("-o", "--outdir", default=None,
+                    help="The directory where the output files will be "
+                    "written")
+parser.add_argument("-r", "--restart", action="store_true",
+                    help="Restart sampling from a previously run chain")
+args = parser.parse_args()
+
+logging.basicConfig(level=logging.INFO)
+
+# Set up the output directory.
+outdir = args.outdir
+if outdir is None:
+    outdir = os.path.dirname(os.path.abspath(args.model))
+try:
+    os.makedirs(outdir)
+except os.error:
+    logging.info("Output directory '{0}' exists".format(outdir))
+
+# Load the pickled model.
+logging.info("Loading the precomputed model.")
+model = pickle.load(open(args.model))
+
+# Define the log-probability function.
+def lnprobfn(p):
+    return model(p)
+
+# Wait for instructions if not master.
+pool = MPIPool()
+if not pool.is_master():
+    pool.wait()
+    sys.exit(0)
+
+# Choose the number of walkers.
+ndim = len(model.vector)
+if args.nwalkers is None:
+    nwalkers = int(2 ** np.ceil(np.log2(ndim) + 1))
+else:
+    nwalkers = args.nwalkers
+logging.info("Sampling {0} parameters with {1} walkers".format(ndim,
+                                                               nwalkers))
+
+# Load positions if restarting.
+results_filename = os.path.join(outdir, "mcmc.txt")
+if args.restart:
+    previous = np.loadtxt(results_filename)
+    iterations = previous[:, 0]
+    iteration0 = int(iterations[-1]) + 1
+    p0 = previous[-nwalkers:, 2:2+ndim]
+
+else:
+    # Overwrite any existing results file.
+    n = len(model.periods)
+    with open(results_filename, "w") as f:
+        f.write("# {0:6s} {1:4s} {2:20s} {3:20s} ".format("iter", "walk",
+                                                          "g1", "g2"))
+        f.write(" ".join(map("{0:20s}".format,
+                             ["p{0}".format(i+1) for i in range(n)] +
+                             ["t{0}".format(i+1) for i in range(n)] +
+                             ["d{0}".format(i+1) for i in range(n)] +
+                             ["r{0}".format(i+1) for i in range(n)] +
+                             ["b{0}".format(i+1) for i in range(n)])))
+        f.write(" lnprob\n")
+
+    # Choose some random positions.
+    iteration0 = 0
+    p0 = [model.vector + 1e-6 * np.random.randn(ndim) for i in range(nwalkers)]
+
+# Set up the sampler.
+sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprobfn, pool=pool)
+
+# Do the sampling.
+for i, (pos, lp, state) in enumerate(sampler.sample(p0, iterations=args.nsteps,
+                                                    storechain=False)):
+    with open(results_filename, "a") as f:
+        for w in range(nwalkers):
+            f.write("{0:8d} {1:4d} ".format(iteration0+i, w))
+            f.write(" ".join(map("{0:20.13e}".format, pos[w])))
+            f.write(" {0:20.13e}\n".format(lp[w]))
+
+pool.close()

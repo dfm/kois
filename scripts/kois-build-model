@@ -36,6 +36,8 @@ if __name__ == "__main__":
         import numpy as np
         import matplotlib.pyplot as pl
 
+        logging.info("Generating folded light curve plots with initial model")
+
         for i, (P, t0) in enumerate(zip(model.periods, model.epochs)):
             hp = 0.5 * P
             pl.clf()
@@ -51,9 +53,3 @@ if __name__ == "__main__":
             pl.savefig(os.path.join(outdir,
                                     "light-curve-{0}.{1:02d}.png"
                                     .format(args.koi, i+1)))
-
-# nwalkers, ndim = 64, len(model.vector)
-# p0 = [model.vector + 1e-6 * np.random.randn(ndim) for i in range(nwalkers)]
-# sampler = emcee.EnsembleSampler(nwalkers, ndim, model)
-# for pos, lp, state in sampler.sample(p0, iterations=500):
-#     print(lp)

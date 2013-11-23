@@ -89,17 +89,18 @@ void lightcurve (double n, double *t, int K, double texp, int np,
 {
     int i, j, k, ntot = n * K, *sgn = malloc(ntot * sizeof(int));
     double t1, v, b, b2, omb2, t0, P, hp, duration,
-           *ttmp = malloc(ntot * sizeof(double)),
+           *ttmp,
            *ftmp = malloc(ntot * sizeof(double)),
            *btmp = malloc(ntot * sizeof(double));
+
+    if (K > 1) ttmp = malloc(ntot * sizeof(double));
+    else ttmp = t;
 
     for (i = 0; i < n; ++i) {
         f[i] = 1.0;
         if (K > 1)
             for (j = 0; j < K; ++j)
                 ttmp[i*K+j] = t[i] - 0.5 * texp + j * texp / (K - 1);
-        else
-            ttmp[i] = t[i];
     }
 
     for (k = 0; k < np; ++k) {
@@ -125,39 +126,21 @@ void lightcurve (double n, double *t, int K, double texp, int np,
         lightcurve_one (rors[k], nbins, r, ir, ntot, btmp, sgn, ftmp);
 
         // Integrate over exposure time.
-        for (i = 0; i < n; ++i) {
-            v = 0.0;
-            for (j = 0; j < K; ++j)
-                v += ftmp[i*K+j];
-            f[i] *= v / K;
+        if (K > 1) {
+            for (i = 0; i < n; ++i) {
+                v = 0.0;
+                for (j = 0; j < K; ++j)
+                    v += ftmp[i*K+j];
+                f[i] *= v / K;
+            }
+        } else {
+            for (i = 0; i < n; ++i)
+                f[i] *= ftmp[i];
         }
     }
 
+    if (K > 1) free(ttmp);
     free(ftmp);
-    free(ttmp);
     free(btmp);
     free(sgn);
 }
-
-// int main ()
-// {
-//     int i, n = 500, np = 1, nbins = 4, K = 3;
-//     double f[500], t[500], texp = 0.02,
-//            periods[] = {10.0},
-//            epochs[] = {5.0},
-//            durations[] = {0.5},
-//            rors[] = {0.01},
-//            impacts[] = {0.5},
-//            r[] = {0.25, 0.5, 0.75, 1.0},
-//            ir[] = {1.0, 0.75, 0.5, 0.1};
-//
-//     for (i = 0; i < n; ++i) t[i] = 0.021 * i;
-//
-//     lightcurve (n, t, K, texp, np, periods, epochs, durations, rors, impacts,
-//                 nbins, r, ir, f);
-//
-//     for (i = 0; i < n; ++i)
-//         printf("%e %e\n", t[i], f[i]);
-//
-//     return 0;
-// }

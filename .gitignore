@@ -4,3 +4,4 @@
 *.png
 .syntastic_c_config
 models
+*.egg-info
