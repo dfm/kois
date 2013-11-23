@@ -88,8 +88,7 @@ static int kois_clear(PyObject *m) {
 
 static struct PyModuleDef moduledef = {
     PyModuleDef_HEAD_INIT,
-    "_kois
-    ",
+    "_kois",
     NULL,
     sizeof(struct module_state),
     kois_methods,
