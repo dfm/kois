@@ -3,3 +3,4 @@
 *.so
 *.png
 .syntastic_c_config
+models

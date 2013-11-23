@@ -19,7 +19,8 @@ from . import _kois
 
 def load_system(koi_id):
     client = kplr.API()
-    kois = client.koi("{0}.01".format(koi_id)).star.kois
+    kois = sorted(client.koi("{0}.01".format(koi_id)).star.kois,
+                  key=lambda k: k.kepoi_name)
 
     # Set up the initial limb-darkening profile.
     mu1, mu2 = get_quad_coeffs(kois[0].koi_steff)
@@ -46,8 +47,8 @@ def load_system(koi_id):
         data = lc.read()
         m = data["SAP_QUALITY"] == 0
         data = KOILightCurve(data["TIME"][m],
-                             data["SAP_FLUX"][m],
-                             data["SAP_FLUX_ERR"][m])
+                             data["PDCSAP_FLUX"][m],
+                             data["PDCSAP_FLUX_ERR"][m])
         datasets += data.active_window(model.periods, model.epochs,
                                        4*model.durations).autosplit()
 
@@ -57,7 +58,7 @@ def load_system(koi_id):
     # De-trend the data.
     model.datasets += [d for d in datasets
                        if d.remove_polynomial(model.periods, model.epochs,
-                                              2*model.durations, 1)]
+                                              1.5*model.durations, 1)]
 
     return model
 
