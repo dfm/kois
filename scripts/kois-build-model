@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import kplr
 import logging
 import numpy as np
 import cPickle as pickle
@@ -20,6 +21,8 @@ if __name__ == "__main__":
                         help="Make some basic figures")
     parser.add_argument("--pbs", action="store_true",
                         help="Generate the PBS script")
+    parser.add_argument("--submit", action="store_true",
+                        help="Submit the job to the bowery cluster")
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO)
@@ -42,7 +45,7 @@ if __name__ == "__main__":
     logging.info("Sampling {0} parameters with {1} walkers".format(ndim, nwalkers))
     logging.info("    ({0} planets)".format(len(model.periods)))
 
-    if args.pbs:
+    if args.pbs or args.submit:
         cpus = nodes * 12
         script = """#!/bin/bash
 
@@ -66,23 +69,63 @@ exit 0;
         with open(os.path.join(outdir, "job.pbs"), "w") as f:
             f.write(script)
 
+    if args.submit:
+        import subprocess
+
+        # Copy the precomputed model.
+        cmd = "scp -r {0} bowery:/scratch/dfm265/kois/".format(outdir)
+        logging.info("Running command:")
+        logging.info("    {0}".format(cmd))
+        subprocess.check_call(cmd, shell=True)
+
+        # Queue the job.
+        cmd = ("ssh bowery \"qsub /scratch/dfm265/kois/koi-{0}/job.pbs\""
+               .format(args.koi))
+        logging.info("Running command:")
+        logging.info("    {0}".format(cmd))
+        subprocess.check_call(cmd, shell=True)
+
     if args.plots:
         import matplotlib.pyplot as pl
 
         logging.info("Generating folded light curve plots with initial model")
 
-        for i, (P, t0) in enumerate(zip(model.periods, model.epochs)):
+        nplanets = len(model.periods)
+
+        for i, (P, t0, dur) in enumerate(zip(model.periods, model.epochs,
+                                             model.durations)):
+            fig, axes = pl.subplots(2, 1, figsize=(6, 6),
+                                    sharex=True)
+            fig.subplots_adjust(left=0.17, bottom=0.1, right=0.9,
+                                top=0.9, wspace=0.05, hspace=0.05)
+
+            # Plot the folded datasets.
             hp = 0.5 * P
-            pl.clf()
-            [pl.plot((d.time-t0+hp) % P - hp, d.flux, ".k", alpha=0.5)
-             for d in model.datasets]
+            for d in model.datasets:
+                ax = axes[0]
+                if d.texp < 0.01:
+                    ax = axes[1]
+                ax.plot((d.time-t0+hp) % P - hp, d.flux, ".k", alpha=0.3, ms=3)
 
-            t = np.concatenate([d.time for d in model.datasets])
-            pl.plot((t-t0+hp) % P - hp, model.get_light_curve(t), ".r", ms=3)
+            # Plot the models.
+            t = np.linspace(-4*dur, 4*dur, 1000)
+            lc = kplr.EXPOSURE_TIMES[1]/86400.0
+            axes[0].plot(t, model.get_light_curve(t+t0, K=5, texp=lc), "r",
+                         lw=2)
+            sc = kplr.EXPOSURE_TIMES[0]/86400.0
+            axes[1].plot(t, model.get_light_curve(t+t0, K=3, texp=sc), "r",
+                         lw=2)
 
-            pl.xlim(-1, 1)
-            pl.title("KOI {0}.{1:02d}, period = {2} days"
-                     .format(args.koi, i+1, P))
-            pl.savefig(os.path.join(outdir,
-                                    "light-curve-{0}.{1:02d}.png"
-                                    .format(args.koi, i+1)))
+            # Set the y-axis limits.
+            for ax in axes:
+                ylim = min(ax.get_ylim()[0] - 1, -1e-3)
+                ax.set_ylim(1+1.2*ylim, 1-0.6*ylim)
+
+            # Labels.
+            axes[0].set_xlim(-4*dur, 4*dur)
+            axes[0].set_title("KOI {0}.{1:02d}, period = {2} days"
+                              .format(args.koi, i+1, P))
+            axes[1].set_xlabel("time since transit")
+            fig.savefig(os.path.join(outdir,
+                                     "light-curve-{0}.{1:02d}.png"
+                                     .format(args.koi, i+1)))
