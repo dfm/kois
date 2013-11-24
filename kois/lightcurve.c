@@ -100,7 +100,7 @@ void lightcurve (double n, double *t, int K, double texp, int np,
         f[i] = 1.0;
         if (K > 1)
             for (j = 0; j < K; ++j)
-                ttmp[i*K+j] = t[i] - 0.5 * texp + j * texp / (K - 1);
+                ttmp[i*K+j] = t[i] + ((j+0.5)/K - 0.5)*texp;
     }
 
     for (k = 0; k < np; ++k) {

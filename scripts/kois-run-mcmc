@@ -89,6 +89,7 @@ sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprobfn, pool=pool)
 # Do the sampling.
 for i, (pos, lp, state) in enumerate(sampler.sample(p0, iterations=args.nsteps,
                                                     storechain=False)):
+    print(i)
     with open(results_filename, "a") as f:
         for w in range(nwalkers):
             f.write("{0:8d} {1:4d} ".format(iteration0+i, w))

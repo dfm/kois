@@ -1,0 +1,74 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+import os
+import logging
+import triangle
+import numpy as np
+import cPickle as pickle
+import matplotlib.pyplot as pl
+from matplotlib.ticker import MaxNLocator
+
+if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(description="Build a KOI model")
+    parser.add_argument("model", help="The path to the model file")
+    parser.add_argument("mcmc", help="The path to the MCMC results file")
+    parser.add_argument("-b", "--burnin", default=0, type=int,
+                        help="The number of steps to discard")
+    parser.add_argument("-t", "--thin", default=1, type=int,
+                        help="The number of steps to skip when thinning")
+    parser.add_argument("-o", "--outdir", default=None,
+                        help="The directory where the output files will be "
+                        "written")
+    args = parser.parse_args()
+
+    # logging.basicConfig(level=logging.INFO)
+
+    # Set up the output directory.
+    outdir = args.outdir
+    if outdir is None:
+        outdir = os.path.dirname(os.path.abspath(args.mcmc))
+    try:
+        os.makedirs(outdir)
+    except os.error:
+        logging.info("Output directory '{0}' exists".format(outdir))
+
+    # Load the pickled model.
+    logging.info("Loading the precomputed model.")
+    model = pickle.load(open(args.model))
+    columns = [c.strip() for c in open(args.mcmc).readline()[1:].split()]
+
+    # Load the results.
+    print("Loading samples")
+    samples = np.loadtxt(args.mcmc)
+    niter, nwalkers = int(samples[-1, 0])+1, int(samples[-1, 1])+1
+    chain = samples.reshape((niter, nwalkers, -1))
+    chain = chain[:, :, 2:]
+
+    # Plot the time series.
+    print("Making time series plots")
+    ndim = chain.shape[-1]
+    factor = 1.5
+    bdim = 0.5 * factor   # size of bottom margin
+    tdim = 0.05 * factor  # size of top margin
+    fig, axes = pl.subplots(ndim, 1, figsize=(8, factor*ndim), sharex=True)
+    fig.subplots_adjust(left=0.17, bottom=bdim/(factor*ndim), right=0.9,
+                        top=1-tdim/(factor*ndim), wspace=0.05, hspace=0.05)
+    for i, (ax, c) in enumerate(zip(axes, columns[2:])):
+        ax.plot(chain[:, :, i], color="k", alpha=0.3)
+        ax.annotate(c, xy=(1, 0), xytext=(-5, 5), xycoords="axes fraction",
+                    textcoords="offset points", ha="right", va="bottom")
+        ax.yaxis.set_major_locator(MaxNLocator(4))
+        ax.axvline(args.burnin, color="#888888", alpha=0.5, lw=3)
+        ax.set_xlim(0, niter)
+    axes[-1].set_xlabel("steps")
+    pl.savefig(os.path.join(outdir, "time.png"))
+
+    # Plot the triangle plot.
+    print("Making triangle plot")
+    cs = np.concatenate((samples[nwalkers*args.burnin::args.thin, 2:],
+                         samples[nwalkers*args.burnin::args.thin, :1]), axis=1)
+    fig = triangle.corner(cs, labels=columns[2:] + ["iter"],
+                          quantiles=[0.16, 0.5, 0.84])
+    fig.savefig(os.path.join(outdir, "triangle.png"))

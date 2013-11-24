@@ -64,7 +64,7 @@ def load_system(koi_id, lc_window_factor=4, sc_window_factor=4,
         data = KOILightCurve(data["TIME"][m],
                              data["PDCSAP_FLUX"][m],
                              data["PDCSAP_FLUX_ERR"][m], texp=texp,
-                             K=3 if lc.sci_archive_class == "CLC" else 1)
+                             K=3)
         datasets += (data.active_window(model.periods, model.epochs,
                                         factor*model.durations)
                      .autosplit())
