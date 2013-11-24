@@ -12,7 +12,7 @@ from emcee.utils import MPIPool
 import argparse
 parser = argparse.ArgumentParser(description="Build a KOI model")
 parser.add_argument("model", help="The path to the model file")
-parser.add_argument("-n", "--nsteps", default=5000, type=int,
+parser.add_argument("-n", "--nsteps", default=10000, type=int,
                     help="The number of steps of MCMC to run")
 parser.add_argument("-w", "--nwalkers", default=None, type=int,
                     help="The number of walkers to use")
@@ -60,6 +60,7 @@ logging.info("Sampling {0} parameters with {1} walkers".format(ndim,
 # Load positions if restarting.
 results_filename = os.path.join(outdir, "mcmc.txt")
 if args.restart:
+    logging.info("Restarting")
     previous = np.loadtxt(results_filename)
     iterations = previous[:, 0]
     iteration0 = int(iterations[-1]) + 1
