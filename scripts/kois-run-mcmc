@@ -51,7 +51,8 @@ if not pool.is_master():
 # Choose the number of walkers.
 ndim = len(model.vector)
 if args.nwalkers is None:
-    nwalkers = int(2 ** np.ceil(np.log2(ndim) + 1))
+    nwalkers = int(np.ceil(ndim/12.0)*24)
+    # nwalkers = int(2 ** np.ceil(np.log2(ndim) + 1))
 else:
     nwalkers = args.nwalkers
 logging.info("Sampling {0} parameters with {1} walkers".format(ndim,
