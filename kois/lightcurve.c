@@ -82,7 +82,7 @@ void lightcurve_one (double p, int nbins, double *r, double *ir, int n,
     free(areas);
 }
 
-void lightcurve (double n, double *t, int K, double texp, int np,
+void lightcurve (int n, double *t, int K, double texp, int np,
                  double *periods, double *epochs, double *durations,
                  double *rors, double *impacts, int nbins, double *r,
                  double *ir, double *f)
