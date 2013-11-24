@@ -26,7 +26,7 @@ from . import _kois
 
 
 def load_system(koi_id, lc_window_factor=4, sc_window_factor=4,
-                detrend_window_factor=1.5, min_dataset_size=50, poly_order=1,
+                detrend_window_factor=1.5, min_dataset_size=10, poly_order=1,
                 ldp_nbins=100):
     client = kplr.API()
 
@@ -72,7 +72,7 @@ def load_system(koi_id, lc_window_factor=4, sc_window_factor=4,
         data = KOILightCurve(data["TIME"][m],
                              data["PDCSAP_FLUX"][m],
                              data["PDCSAP_FLUX_ERR"][m], texp=texp,
-                             K=3)
+                             K=5 if lc.sci_archive_class == "CLC" else 3)
         datasets += (data.active_window(model.periods, model.epochs,
                                         factor*model.durations)
                      .autosplit())
