@@ -7,3 +7,4 @@ models
 *.egg-info
 venv
 build
+*.crunch.local
