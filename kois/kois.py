@@ -6,6 +6,13 @@ from __future__ import (division, print_function, absolute_import,
 
 __all__ = ["load_system", "LightCurve", "Model"]
 
+try:
+    import matplotlib
+except ImportError:
+    pass
+else:
+    matplotlib.use("Agg")
+
 import logging
 import numpy as np
 
@@ -99,7 +106,7 @@ class KOILightCurve(LightCurve):
         if not np.sum(m):
             return False
 
-        p = np.polyfit(t[m], self.flux[m], order, w=self.ivar[m])
+        p = np.polyfit(t[m], self.flux[m], order)  # , w=self.ivar[m])
         self.flux /= np.polyval(p, t)
         return True
 

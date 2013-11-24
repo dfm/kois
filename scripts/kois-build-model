@@ -3,6 +3,7 @@
 
 import os
 import logging
+import numpy as np
 import cPickle as pickle
 
 import kois
@@ -17,7 +18,11 @@ if __name__ == "__main__":
                         "written")
     parser.add_argument("--plots", action="store_true",
                         help="Make some basic figures")
+    parser.add_argument("--pbs", action="store_true",
+                        help="Generate the PBS script")
     args = parser.parse_args()
+
+    logging.basicConfig(level=logging.INFO)
 
     # Set up the output directory.
     outdir = args.outdir
@@ -31,9 +36,35 @@ if __name__ == "__main__":
 
     model = kois.load_system(args.koi)
     pickle.dump(model, open(os.path.join(outdir, "model.pkl"), "wb"), -1)
+    ndim = len(model.vector)
+    nodes = int(max(np.ceil(ndim/12.0), 2))
+    nwalkers = 24 * nodes
+    logging.info("Sampling {0} parameters with {1} walkers".format(ndim, nwalkers))
+    logging.info("    ({0} planets)".format(len(model.periods)))
+
+    if args.pbs:
+        cpus = nodes * 12
+        script = """#!/bin/bash
+
+#PBS -l nodes={nodes}:ppn=12,walltime=8:00:00
+#PBS -q p12
+#PBS -N koi{koi}
+#PBS -M dfm265@nyu.edu
+#PBS -m abe
+#PBS -e localhost:$PBS_O_WORKDIR/${{PBS_JOBNAME}}.e${{PBS_JOBID}}
+#PBS -o localhost:$PBS_O_WORKDIR/${{PBS_JOBNAME}}.o${{PBS_JOBID}}
+
+cd /scratch/dfm265/kois/koi-{koi}
+
+mpiexec -np {cpus} /share/apps/mpi4py/1.3/openmpi/intel/lib/python2.7/site-packages/mpi4py/bin/python-mpi /home/dfm265/projects/kois/scripts/kois-run-mcmc model.pkl --nwalkers {nwalkers} &> output.log
+
+exit 0;
+""".format(nodes=nodes, cpus=cpus, koi=args.koi, nwalkers=nwalkers)
+
+        with open(os.path.join(outdir, "job.pbs"), "w") as f:
+            f.write(script)
 
     if args.plots:
-        import numpy as np
         import matplotlib.pyplot as pl
 
         logging.info("Generating folded light curve plots with initial model")
