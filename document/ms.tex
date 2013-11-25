@@ -32,7 +32,7 @@
 \title{%
 The \kplr\ Catalog:
 Systematic probabilistic parameter estimation for all \kepler\ planet
-candidates
+candidates and inference of the radius distribution
 }
 
 \newcommand{\nyu}{2}
@@ -52,8 +52,24 @@ candidates
 
 \begin{abstract}
 
-In order to study the population of transiting exoplanets found by the
-\kerpler\ mission, we must propagate information from ...
+We provide a catalog of probabilistic constraints on the physical parameters
+of each of the planet candidates found using data from the \kepler\ transiting
+planet search.
+Using a physically motivated generative model with flat ``default'' priors, we
+draw samples from the posterior probability distribution conditioned on all
+the available light curves from \kepler\ Quarters 0 through 16.
+We release both the catalog values and full posterior samplings for each
+system.
+We compare our results to the existing KOI catalog and find xxx.
+Using these samplings, we demonstrate a computationally tractable hierarchical
+inference technique for simultaneously modeling the exoplanet radius
+distribution and the selection function of the \kepler\ survey and pipeline.
+When applied to a sample of cool stars with well constrained properties, we
+find yyy.
+
+Access to the catalog is available on-line at \url{http://data.kplr.co} and
+the code is available---under the terms of the MIT license---at
+\url{https://github.com/dfm/kois}.
 
 \end{abstract}
 
@@ -84,6 +100,7 @@ So probabilistically righteous.
 \acknowledgments
 It is a pleasure to thank
     Tom Barclay (NASA Ames),
+    Tim Morton (Princeton),
     \ldots
 for helpful contributions to the ideas and code presented here.
 This project was partially supported by the NSF (grant AST-0908357), and NASA
