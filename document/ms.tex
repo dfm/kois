@@ -31,8 +31,7 @@
 
 \title{%
 The \kplr\ Catalog:
-Systematic probabilistic parameter estimation for all \kepler\ planet
-candidates and inference of the radius distribution
+Systematic probabilistic parameter estimation for every \kepler\ planet candidate
 }
 
 \newcommand{\nyu}{2}
@@ -50,17 +49,25 @@ candidates and inference of the radius distribution
 \altaffiltext{\mpia}{Max-Planck-Institut f\"ur Astronomie,
                         K\"onigstuhl 17, D-69117 Heidelberg, Germany}
 
-\begin{abstract}
+\begin{abstract} % should be aims, methods, results
+As precise as \kepler\ is,
+it provides only probabilistic information
+about transiting companions in the lightcurves of stars.
+The official \kepler\ best-fit values for the parameters
+(periods, radii ratios, durations, impact parameters)
+contain some known biases,
+are not associated with full uncertainty propagation,
+and cannot be used as the basis of any probabilistic population analysis.
 
-We provide a catalog of probabilistic constraints on the physical parameters
-of each of the planet candidates found using data from the \kepler\ transiting
+Here we provide a catalog of probabilistic constraints on the physical parameters
+for every planet candidate (KOI) from the \kepler\ transiting
 planet search.
-Using a physically motivated generative model with flat ``default'' priors, we
+Using a physically motivated generative model with flat ``interim'' priors, we
 draw samples from the posterior probability distribution conditioned on all
 the available light curves from \kepler\ Quarters 0 through 16.
-We release both the catalog values and full posterior samplings for each
+We release both the catalog values and full $16384$-element posterior samplings for each
 system.
-We compare our results to the existing KOI catalog and find xxx.
+We compare our results to the existing KOI Catalog and find xxx.
 Using these samplings, we demonstrate a computationally tractable hierarchical
 inference technique for simultaneously modeling the exoplanet radius
 distribution and the selection function of the \kepler\ survey and pipeline.
