@@ -88,7 +88,7 @@ void lightcurve (int n, double *t, int K, double texp, int np,
                  double *ir, double *f)
 {
     int i, j, k, ntot = n * K, *sgn = malloc(ntot * sizeof(int));
-    double t1, v, b, b2, omb2, t0, P, hp, duration,
+    double t1, delta_t, v, b, b2, opr2, t0, P, hp, hpmt0, duration,
            *ttmp,
            *ftmp = malloc(ntot * sizeof(double)),
            *btmp = malloc(ntot * sizeof(double));
@@ -105,19 +105,31 @@ void lightcurve (int n, double *t, int K, double texp, int np,
 
     for (k = 0; k < np; ++k) {
         // Extract the planet parameters.
+        opr2 = 1 + r[k];
+        opr2 *= opr2;
         b = impacts[k];
         b2 = b*b;
-        omb2 = 1 - b2;
         t0 = epochs[k];
         P = periods[k];
         hp = 0.5*P;
+        hpmt0 = hp - t0;
         duration = durations[k];
+
+        // Compute the velocity based on the b=0 duration.
+        v = 2.0 / duration;
+
+        // Compute the b=impact transit time.
+        delta_t = sqrt(opr2 - b*b) / v;
 
         // Compute the impact parameter as a function of time.
         for (i = 0; i < ntot; ++i) {
-            t1 = (fmod(ttmp[i] - t0 + hp, P) - hp) / duration;
-            if (fabs(t1) < 1.0) {
-                btmp[i] = sqrt(b2 + 4*omb2*t1*t1);
+            // Find the time since transit.
+            t1 = fmod(ttmp[i] + hpmt0, P) - hp;
+
+            // If the planet is in transit, compute the impact parameter.
+            if (fabs(t1) < delta_t) {
+                t1 *= v;
+                btmp[i] = sqrt(b2 + t1*t1);
                 sgn[i] = 1;
             } else sgn[i] = -1;
         }

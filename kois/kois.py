@@ -32,7 +32,8 @@ def load_system(koi_id, lc_window_factor=4, sc_window_factor=4,
 
     logging.info("Getting the catalog parameters for KOI {0}.XX"
                  .format(koi_id))
-    kois = sorted(client.koi("{0}.01".format(koi_id)).star.kois,
+    kois = sorted([k for k in client.koi("{0}.01".format(koi_id)).star.kois
+                   if k.koi_disposition in ["CANDIDATE", "CONFIRMED"]],
                   key=lambda k: k.kepoi_name)
     if not len(kois):
         raise RuntimeError("No KOIs listed in the ctalog with ID '{0}'"
@@ -40,6 +41,7 @@ def load_system(koi_id, lc_window_factor=4, sc_window_factor=4,
 
     # Set up the initial limb-darkening profile.
     mu1, mu2 = get_quad_coeffs(kois[0].koi_steff)
+    mu1 = max(0.0, mu1)
     ldp = bart.ld.QuadraticLimbDarkening(mu1, mu2, ldp_nbins)
 
     # Set up the model.
@@ -48,14 +50,21 @@ def load_system(koi_id, lc_window_factor=4, sc_window_factor=4,
 
     # Loop over KOIs and add the initial values to the model.
     for koi in kois:
+        # Parse the KOI parameters.
         P = koi.koi_period
+        t0 = koi.koi_time0bk % P
+        ror = koi.koi_ror
+        b = koi.koi_impact
 
         # Skip single transits.
         if P < 0:
             continue
 
-        t0 = koi.koi_time0bk % P
-        model.add_koi(P, t0, koi.koi_duration/24., koi.koi_ror, koi.koi_impact)
+        # Convert the KOI duration to the b=0 duration that we need.
+        tau = (koi.koi_duration/24.) / np.sqrt((1+ror)**2 - b*b)
+
+        # Add the KOI to the model.
+        model.add_koi(P, t0, tau, ror, b)
 
     # Load the light curves.
     logging.info("Loading datasets")
