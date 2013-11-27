@@ -40,8 +40,18 @@ if __name__ == "__main__":
     if args.submit:
         import subprocess
 
+        # Make sure that the remote directory exists.
+        cmd = ("ssh bowery \"mkdir -p /scratch/dfm265/kois/{0}\""
+               .format(kepid))
+        logging.info("Running command:")
+        logging.info("    {0}".format(cmd))
+        subprocess.check_call(cmd, shell=True)
+
         # Copy the precomputed model.
-        cmd = "scp -r {0} bowery:/scratch/dfm265/kois/".format(outdir)
+        files = map(lambda f: os.path.join(outdir, f),
+                    ["model.pkl", "job.pbs"])
+        cmd = ("scp -r {0} bowery:/scratch/dfm265/kois/{1}"
+               .format(" ".join(files), kepid))
         logging.info("Running command:")
         logging.info("    {0}".format(cmd))
         subprocess.check_call(cmd, shell=True)
