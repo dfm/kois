@@ -94,7 +94,7 @@ def load_system(kepid, lc_window_factor=4, sc_window_factor=4,
     if not len(datasets):
         raise RuntimeError("No datasets could be de-trended.")
 
-    return kois[0].kepoi_name.split(".")[0], model
+    return int(kois[0].kepoi_name.split(".")[0][1:]), model
 
 
 class KOILightCurve(LightCurve):

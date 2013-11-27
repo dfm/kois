@@ -81,9 +81,7 @@ if __name__ == "__main__":
 
 cd /scratch/dfm265/kois/{kepid}
 
-export PYTHONPATH=/home/dfm265/projects/kois/:$PYTHONPATH
-
-mpiexec -np {cpus} /share/apps/mpi4py/1.3/openmpi/intel/lib/python2.7/site-packages/mpi4py/bin/python-mpi /home/dfm265/projects/kois/scripts/kois-run-mcmc model.pkl --nwalkers {nwalkers} &> output.log
+mpiexec -np {cpus} -hostfile $PBS_NODEFILE /share/apps/mpi4py/1.3/openmpi/intel/lib/python2.7/site-packages/mpi4py/bin/python-mpi /home/dfm265/projects/kois/scripts/kois-run-mcmc model.pkl --nwalkers {nwalkers} &> output.log
 
 exit 0;
 """.format(nodes=nodes, cpus=cpus, kepid=kepid, nwalkers=nwalkers)
