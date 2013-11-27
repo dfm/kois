@@ -33,7 +33,8 @@ def load_system(kepid, lc_window_factor=4, sc_window_factor=4,
                            .format(kepid))
 
     # Set up the initial limb-darkening profile.
-    mu1, mu2 = get_quad_coeffs(kois[0].koi_steff)
+    teff = kois[0].koi_steff
+    mu1, mu2 = get_quad_coeffs(teff if teff is not None else 5778)
     mu1 = max(0.0, mu1)
     ldp = bart.ld.QuadraticLimbDarkening(mu1, mu2, ldp_nbins)
 
