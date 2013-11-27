@@ -6,13 +6,6 @@ from __future__ import (division, print_function, absolute_import,
 
 __all__ = ["load_system", "LightCurve", "Model"]
 
-try:
-    import matplotlib
-except ImportError:
-    pass
-else:
-    matplotlib.use("Agg")
-
 import logging
 import numpy as np
 
@@ -25,19 +18,19 @@ from bart.data import LightCurve
 from . import _kois
 
 
-def load_system(koi_id, lc_window_factor=4, sc_window_factor=4,
+def load_system(kepid, lc_window_factor=4, sc_window_factor=4,
                 detrend_window_factor=1.5, min_dataset_size=10, poly_order=1,
                 ldp_nbins=100):
     client = kplr.API()
 
-    logging.info("Getting the catalog parameters for KOI {0}.XX"
-                 .format(koi_id))
-    kois = sorted([k for k in client.koi("{0}.01".format(koi_id)).star.kois
+    logging.info("Getting the catalog parameters for KIC {0}"
+                 .format(kepid))
+    kois = sorted([k for k in client.star(kepid).kois
                    if k.koi_disposition in ["CANDIDATE", "CONFIRMED"]],
                   key=lambda k: k.kepoi_name)
     if not len(kois):
-        raise RuntimeError("No KOIs listed in the ctalog with ID '{0}'"
-                           .format(koi_id))
+        raise RuntimeError("No KOIs listed in the catalog for ID '{0}'"
+                           .format(kepid))
 
     # Set up the initial limb-darkening profile.
     mu1, mu2 = get_quad_coeffs(kois[0].koi_steff)
@@ -100,7 +93,7 @@ def load_system(koi_id, lc_window_factor=4, sc_window_factor=4,
     if not len(datasets):
         raise RuntimeError("No datasets could be de-trended.")
 
-    return model
+    return kois[0].kepoi_name.split(".")[0], model
 
 
 class KOILightCurve(LightCurve):
