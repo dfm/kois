@@ -53,7 +53,7 @@ if __name__ == "__main__":
     logging.info("    ({0} planets)".format(len(model.periods)))
 
     cpus = nodes * 12
-    script = open("templates/{0}.pbs").format(args.cluster).read()
+    script = open("templates/{0}.pbs".format(args.cluster)).read()
     script = script.format(nodes=nodes, cpus=cpus, kepid=kepid,
                            nwalkers=nwalkers)
 
