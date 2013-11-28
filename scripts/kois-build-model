@@ -86,7 +86,7 @@ if __name__ == "__main__":
         logging.info("Running command:")
         logging.info("    {0}".format(cmd))
         subprocess.check_call(cmd, shell=True)
-        sys.exit(0)
+        # sys.exit(0)
 
     import matplotlib.pyplot as pl
 

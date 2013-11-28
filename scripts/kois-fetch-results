@@ -12,6 +12,8 @@ if __name__ == "__main__":
     parser.add_argument("-o", "--outdir", default=None,
                         help="The directory where the output files will be "
                         "written")
+    parser.add_argument("-c", "--cluster", default="butinah",
+                        help="The name of the cluster")
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO)
     kepid = args.kepid
@@ -23,8 +25,8 @@ if __name__ == "__main__":
     outdir = os.path.join(outdir, "{0}".format(kepid))
 
     # Copy the precomputed model.
-    files = map(lambda f: "bowery:/scratch/dfm265/kois/{0}/{1}"
-                .format(kepid, f),
+    files = map(lambda f: "{2}:/scratch/dfm265/kois/{0}/{1}"
+                .format(kepid, f, args.cluster),
                 ["model.pkl", "mcmc.txt"])
     cmd = "scp {0} {1}".format(" ".join(files), outdir)
     logging.info("Running command:")
