@@ -43,6 +43,7 @@ def load_system(kepid, lc_window_factor=4, sc_window_factor=4,
                   period_tol=sc_window_factor*3e-4)
 
     # Loop over KOIs and add the initial values to the model.
+    full_durations = np.array([])
     for koi in kois:
         # Parse the KOI parameters.
         P = koi.koi_period
@@ -55,6 +56,7 @@ def load_system(kepid, lc_window_factor=4, sc_window_factor=4,
             continue
 
         # Convert the KOI duration to the b=0 duration that we need.
+        full_durations = np.append(full_durations, koi.koi_duration/24.)
         tau = (koi.koi_duration/24.) / np.sqrt((1+ror)**2 - b*b)
 
         # Add the KOI to the model.
@@ -76,7 +78,7 @@ def load_system(kepid, lc_window_factor=4, sc_window_factor=4,
                              data["PDCSAP_FLUX_ERR"][m], texp=texp,
                              K=5 if lc.sci_archive_class == "CLC" else 3)
         datasets += (data.active_window(model.periods, model.epochs,
-                                        factor*model.durations)
+                                        factor*full_durations)
                      .autosplit())
 
     # Remove datasets with not enough data points.
@@ -89,7 +91,7 @@ def load_system(kepid, lc_window_factor=4, sc_window_factor=4,
     model.datasets += [d for d in datasets
                        if d.remove_polynomial(model.periods, model.epochs,
                                               detrend_window_factor
-                                              * model.durations, poly_order)]
+                                              * full_durations, poly_order)]
     logging.info("{0} datasets were de-trended".format(len(model.datasets)))
     if not len(datasets):
         raise RuntimeError("No datasets could be de-trended.")
@@ -106,7 +108,7 @@ class KOILightCurve(LightCurve):
             hp = 0.5 * p
             m[np.abs((t - t0 + hp) % p - hp) < dt] = 0
 
-        if np.sum(m) < 20:
+        if np.sum(m) < 10:
             return False
 
         p = np.polyfit(t[m], self.flux[m], order, w=self.ivar[m])
