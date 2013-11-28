@@ -20,7 +20,7 @@ except ImportError:
 import argparse
 parser = argparse.ArgumentParser(description="Build a KOI model")
 parser.add_argument("model", help="The path to the model file")
-parser.add_argument("-n", "--nsteps", default=100000, type=int,
+parser.add_argument("-n", "--nsteps", default=50000, type=int,
                     help="The number of steps of MCMC to run")
 parser.add_argument("-w", "--nwalkers", default=None, type=int,
                     help="The number of walkers to use")
