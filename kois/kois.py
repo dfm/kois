@@ -106,10 +106,10 @@ class KOILightCurve(LightCurve):
             hp = 0.5 * p
             m[np.abs((t - t0 + hp) % p - hp) < dt] = 0
 
-        if not np.sum(m):
+        if np.sum(m) < 20:
             return False
 
-        p = np.polyfit(t[m], self.flux[m], order)  # , w=self.ivar[m])
+        p = np.polyfit(t[m], self.flux[m], order, w=self.ivar[m])
         self.flux /= np.polyval(p, t)
         return True
 
