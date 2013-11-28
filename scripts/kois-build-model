@@ -36,34 +36,6 @@ if __name__ == "__main__":
         outdir = "models"
     outdir = os.path.join(outdir, "{0}".format(kepid))
 
-    # Fist submit and exit if asked.
-    if args.submit:
-        import subprocess
-
-        # Make sure that the remote directory exists.
-        cmd = ("ssh bowery \"mkdir -p /scratch/dfm265/kois/{0}\""
-               .format(kepid))
-        logging.info("Running command:")
-        logging.info("    {0}".format(cmd))
-        subprocess.check_call(cmd, shell=True)
-
-        # Copy the precomputed model.
-        files = map(lambda f: os.path.join(outdir, f),
-                    ["model.pkl", "job.pbs"])
-        cmd = ("scp -r {0} bowery:/scratch/dfm265/kois/{1}"
-               .format(" ".join(files), kepid))
-        logging.info("Running command:")
-        logging.info("    {0}".format(cmd))
-        subprocess.check_call(cmd, shell=True)
-
-        # Queue the job.
-        cmd = ("ssh bowery \"qsub /scratch/dfm265/kois/{0}/job.pbs\""
-               .format(kepid))
-        logging.info("Running command:")
-        logging.info("    {0}".format(cmd))
-        subprocess.check_call(cmd, shell=True)
-        sys.exit(0)
-
     try:
         os.makedirs(outdir)
     except os.error:
@@ -98,6 +70,34 @@ exit 0;
 
     with open(os.path.join(outdir, "job.pbs"), "w") as f:
         f.write(script)
+
+    # Fist submit and exit if asked.
+    if args.submit:
+        import subprocess
+
+        # Make sure that the remote directory exists.
+        cmd = ("ssh bowery \"mkdir -p /scratch/dfm265/kois/{0}\""
+               .format(kepid))
+        logging.info("Running command:")
+        logging.info("    {0}".format(cmd))
+        subprocess.check_call(cmd, shell=True)
+
+        # Copy the precomputed model.
+        files = map(lambda f: os.path.join(outdir, f),
+                    ["model.pkl", "job.pbs"])
+        cmd = ("scp -r {0} bowery:/scratch/dfm265/kois/{1}"
+               .format(" ".join(files), kepid))
+        logging.info("Running command:")
+        logging.info("    {0}".format(cmd))
+        subprocess.check_call(cmd, shell=True)
+
+        # Queue the job.
+        cmd = ("ssh bowery \"qsub /scratch/dfm265/kois/{0}/job.pbs\""
+               .format(kepid))
+        logging.info("Running command:")
+        logging.info("    {0}".format(cmd))
+        subprocess.check_call(cmd, shell=True)
+        sys.exit(0)
 
     import matplotlib.pyplot as pl
 
