@@ -77,6 +77,7 @@ ntot = args.nsteps + args.factor * len(model.periods)
 
 # Load positions if restarting.
 results_filename = os.path.join(outdir, "mcmc.h5")
+initial_vector = np.array(model.vector)
 if args.restart:
     logging.info("Restarting")
     with h5py.File(results_filename) as f:
@@ -97,8 +98,18 @@ else:
 
     # Choose some random positions.
     iteration0 = 0
-    p0 = [np.fabs(model.vector + 1e-6 * np.random.randn(ndim))
-          for i in range(nwalkers)]
+    p0 = []
+    for i in range(nwalkers):
+        flag = True
+        for j in xrange(5000):
+            v = initial_vector + 1e-6 * np.random.randn(ndim)
+            model.vector = v
+            if np.isfinite(model.lnprob()):
+                p0.append(v)
+                flag = False
+                break
+        if flag:
+            raise RuntimeError("Couldn't find reasonable starting position.")
 
 # Set up the sampler.
 sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprobfn, pool=pool)
@@ -111,8 +122,19 @@ if not args.restart:
     # Re-sample the walkers close to the best sample seen yet.
     lp = sampler.lnprobability
     k, it = np.unravel_index(np.argmax(lp), lp.shape)
-    v = sampler.chain[k, it, :]
-    p0 = [np.fabs(v + 1e-6 * np.random.randn(ndim)) for i in range(nwalkers)]
+    initial_vector = sampler.chain[k, it, :]
+    p0 = []
+    for i in range(nwalkers):
+        flag = True
+        for j in xrange(5000):
+            v = initial_vector + 1e-6 * np.random.randn(ndim)
+            model.vector = v
+            if np.isfinite(model.lnprob()):
+                p0.append(v)
+                flag = False
+                break
+        if flag:
+            raise RuntimeError("Couldn't find position post-burn-in.")
 
     # Clear the burn-in.
     sampler.reset()
@@ -120,7 +142,7 @@ if not args.restart:
 # Do the sampling.
 for i, (pos, lp, state) in enumerate(sampler.sample(p0, iterations=ntot,
                                                     storechain=False)):
-    print(i)
+    print(i, np.mean(sampler.acceptance_fraction))
     with h5py.File(results_filename) as f:
         f.attrs["iteration"] = iteration0+i
         f["samples"][:, i, :] = pos
