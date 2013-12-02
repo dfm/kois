@@ -4,6 +4,7 @@
 import os
 import sys
 import kplr
+import h5py
 import logging
 import triangle
 import numpy as np
@@ -40,16 +41,28 @@ if __name__ == "__main__":
     # Load the pickled model.
     logging.info("Loading the precomputed model.")
     model = pickle.load(open(os.path.join(args.basedir, "model.pkl")))
-    columns = [c.strip()
-               for c in open(os.path.join(args.basedir, "mcmc.txt"))
-               .readline()[1:].split()]
+    # columns = [c.strip()
+    #            for c in open(os.path.join(args.basedir, "mcmc.txt"))
+    #            .readline()[1:].split()]
+    n = len(model.periods)
+    columns = (["g1", "g2"] +
+               ["p{0}".format(i+1) for i in range(n)] +
+               ["t{0}".format(i+1) for i in range(n)] +
+               ["d{0}".format(i+1) for i in range(n)] +
+               ["r{0}".format(i+1) for i in range(n)] +
+               ["b{0}".format(i+1) for i in range(n)])
 
     # Load the results.
     print("Loading samples")
-    samples = np.loadtxt(os.path.join(args.basedir, "mcmc.txt"))
-    niter, nwalkers = int(samples[-1, 0])+1, int(samples[-1, 1])+1
-    chain = samples.reshape((niter, nwalkers, -1))
-    chain = chain[:, :, 2:]
+    # samples = np.loadtxt(os.path.join(args.basedir, "mcmc.txt"))
+    # niter, nwalkers = int(samples[-1, 0])+1, int(samples[-1, 1])+1
+    # chain = samples.reshape((niter, nwalkers, -1))
+    # chain = chain[:, :, 2:]
+    with h5py.File(os.path.join(args.basedir, "mcmc.h5"), "r") as f:
+        i = f.attrs["iteration"]
+        chain = f["samples"][:, :i, :]
+        lnprob = f["lnprob"][:, :i]
+    nwalkers, niter, ndim = chain.shape
 
     # Plot the time series.
     print("Making time series plots")
@@ -69,6 +82,8 @@ if __name__ == "__main__":
         ax.set_xlim(0, niter)
     axes[-1].set_xlabel("steps")
     pl.savefig(os.path.join(outdir, "time.png"))
+
+    assert 0
 
     # Find the MAP sample.
     ind = np.argmax(samples[:, -1])

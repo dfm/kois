@@ -27,7 +27,7 @@ if __name__ == "__main__":
     # Copy the precomputed model.
     files = map(lambda f: "{2}:/scratch/dfm265/kois/{0}/{1}"
                 .format(kepid, f, args.cluster),
-                ["model.pkl", "mcmc.txt"])
+                ["model.pkl", "mcmc.h5"])
     cmd = "scp {0} {1}".format(" ".join(files), outdir)
     logging.info("Running command:")
     logging.info("    {0}".format(cmd))
