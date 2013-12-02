@@ -3,6 +3,7 @@
 
 import os
 import sys
+import h5py
 import emcee
 import logging
 import numpy as np
@@ -22,6 +23,8 @@ parser = argparse.ArgumentParser(description="Build a KOI model")
 parser.add_argument("model", help="The path to the model file")
 parser.add_argument("-n", "--nsteps", default=50000, type=int,
                     help="The number of steps of MCMC to run")
+parser.add_argument("-b", "--burnin", default=2000, type=int,
+                    help="The number of burn-in steps to run")
 parser.add_argument("-w", "--nwalkers", default=None, type=int,
                     help="The number of walkers to use")
 parser.add_argument("-o", "--outdir", default=None,
@@ -67,27 +70,22 @@ logging.info("Sampling {0} parameters with {1} walkers".format(ndim,
                                                                nwalkers))
 
 # Load positions if restarting.
-results_filename = os.path.join(outdir, "mcmc.txt")
+results_filename = os.path.join(outdir, "mcmc.h5")
 if args.restart:
     logging.info("Restarting")
-    previous = np.loadtxt(results_filename)
-    iterations = previous[:, 0]
-    iteration0 = int(iterations[-1]) + 1
-    p0 = previous[-nwalkers:, 2:2+ndim]
+    with h5py.File(results_filename, "r") as f:
+        iteration0 = int(f.attrs["iteration"]) + 1
+        p0 = np.array(f["samples"][:, iteration0, :])
+    nwalkers, ndim = p0.shape
+    assert ndim == len(model.vector), "Dimension mismatch"
 
 else:
     # Overwrite any existing results file.
     n = len(model.periods)
-    with open(results_filename, "w") as f:
-        f.write("# {0:6s} {1:4s} {2:20s} {3:20s} ".format("iter", "walk",
-                                                          "g1", "g2"))
-        f.write(" ".join(map("{0:20s}".format,
-                             ["p{0}".format(i+1) for i in range(n)] +
-                             ["t{0}".format(i+1) for i in range(n)] +
-                             ["d{0}".format(i+1) for i in range(n)] +
-                             ["r{0}".format(i+1) for i in range(n)] +
-                             ["b{0}".format(i+1) for i in range(n)])))
-        f.write(" lnprob\n")
+    with h5py.File(results_filename, "w") as f:
+        f.create_dataset("samples", (nwalkers, args.nsteps, len(model.vector)),
+                         "f")
+        f.create_dataset("lnprob", (nwalkers, args.nsteps), "f")
 
     # Choose some random positions.
     iteration0 = 0
@@ -96,14 +94,27 @@ else:
 # Set up the sampler.
 sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprobfn, pool=pool)
 
+if not args.restart:
+    # Run a burn-in.
+    print("Running burn-in")
+    sampler.run_mcmc(p0, args.burnin)
+
+    # Re-sample the walkers close to the best sample seen yet.
+    lp = sampler.lnprobability
+    k, it = np.unravel_index(np.argmax(lp), lp.shape)
+    v = sampler.chain[k, it, :]
+    p0 = [v + 1e-6 * np.random.randn(ndim) for i in range(nwalkers)]
+
+    # Clear the burn-in.
+    sampler.reset()
+
 # Do the sampling.
 for i, (pos, lp, state) in enumerate(sampler.sample(p0, iterations=args.nsteps,
                                                     storechain=False)):
     print(i)
-    with open(results_filename, "a") as f:
-        for w in range(nwalkers):
-            f.write("{0:8d} {1:4d} ".format(iteration0+i, w))
-            f.write(" ".join(map("{0:20.13e}".format, pos[w])))
-            f.write(" {0:20.13e}\n".format(lp[w]))
+    with h5py.File(results_filename) as f:
+        f.attrs["iteration"] = iteration0+i
+        f["samples"][:, i, :] = pos
+        f["lnprob"][:, i] = lp
 
 pool.close()

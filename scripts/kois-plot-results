@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import sys
 import kplr
 import logging
 import triangle
@@ -21,6 +22,8 @@ if __name__ == "__main__":
     parser.add_argument("-o", "--outdir", default=None,
                         help="The directory where the output files will be "
                         "written")
+    parser.add_argument("--triangle", default="store_true",
+                        help="Make the triangle plot")
     args = parser.parse_args()
 
     # logging.basicConfig(level=logging.INFO)
@@ -126,6 +129,8 @@ if __name__ == "__main__":
                                  .format(i+1)))
 
     # Plot the triangle plot.
+    if not args.triangle:
+        sys.exit(0)
     print("Making triangle plot")
     cs = np.concatenate((samples[nwalkers*args.burnin::args.thin, 2:],
                          samples[nwalkers*args.burnin::args.thin, :1]), axis=1)
