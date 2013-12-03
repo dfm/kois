@@ -63,7 +63,6 @@ if __name__ == "__main__":
         chain = f["samples"][:, :i, :]
         lnprob = f["lnprob"][:, :i]
     nwalkers, niter, ndim = chain.shape
-    print(lnprob)
 
     import acor
     tau = np.array([acor.acor(chain[:, args.burnin:, ind])[0]
@@ -93,11 +92,9 @@ if __name__ == "__main__":
     axes[-1].set_xlabel("steps")
     pl.savefig(os.path.join(outdir, "time.png"))
 
-    assert 0
-
     # Find the MAP sample.
-    ind = np.argmax(samples[:, -1])
-    model.vector = samples[ind, 2:-1]
+    w, ind = np.unravel_index(np.argmax(lnprob), lnprob.shape)
+    model.vector = chain[w, ind, :]
     map_periods = np.array(model.periods)
     map_epochs = np.array(model.epochs)
     map_durations = np.array(model.durations)
@@ -109,7 +106,9 @@ if __name__ == "__main__":
                             for i in range(nplanets)])
     [f.subplots_adjust(left=0.17, bottom=0.1, right=0.9, top=0.9,
                        wspace=0.05, hspace=0.05) for f in figs]
-    thinned_chain = samples[nwalkers*args.burnin::args.thin, 2:-1]
+    thinned_chain = chain[:, args.burnin::args.thin, :]
+    thinned_chain = thinned_chain.reshape((nwalkers*thinned_chain.shape[1],
+                                           -1))
     for j, ind in enumerate(np.random.randint(len(thinned_chain), size=100)):
         model.vector = thinned_chain[ind]
 
