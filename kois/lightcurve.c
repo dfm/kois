@@ -115,11 +115,15 @@ void lightcurve (int n, double *t, int K, double texp, int np,
         hpmt0 = hp - t0;
         duration = durations[k];
 
-        // Compute the velocity based on the b=0 duration.
-        v = 2.0 / duration;
+        // // Compute the velocity based on the b=0 duration.
+        // v = 2.0 / duration;
+        //
+        // // Compute the b=impact transit time.
+        // delta_t = sqrt(opr2 - b*b) / v;
 
-        // Compute the b=impact transit time.
-        delta_t = sqrt(opr2 - b*b) / v;
+        // FIXME.
+        delta_t = 0.5 * duration;
+        v = 2 * sqrt(opr2 - b*b) / duration;
 
         // Compute the impact parameter as a function of time.
         for (i = 0; i < ntot; ++i) {
