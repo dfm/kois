@@ -47,14 +47,14 @@ class QuadraticLimbDarkening(object):
     @property
     def coeffs(self):
         q1, q2 = self._q1, self._q2
-        q1 = np.sqrt(q1)
+        q1 = np.sqrt(np.abs(q1))
         return 2*q1*q2, q1*(1-2*q2)
 
     @coeffs.setter
     def coeffs(self, value):
         u1, u2 = value
         u2 = u1+u2
-        self._q1, self.q2 = u2*u2, 0.5*u1/u2
+        self.q1, self.q2 = u2*u2, 0.5*u1/u2
 
     @property
     def intensity(self):

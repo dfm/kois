@@ -2,11 +2,11 @@
 # -*- coding: utf-8 -*-
 
 import os
-import sys
 import kplr
 import logging
 import numpy as np
 import cPickle as pickle
+import matplotlib.pyplot as pl
 
 import kois
 
@@ -52,6 +52,8 @@ if __name__ == "__main__":
                                                                    nwalkers))
     logging.info("    ({0} planets)".format(len(model.periods)))
 
+    logging.info("Initial lnprob: {0}".format(model.lnprob()))
+
     cpus = nodes * 12
     script = open("templates/{0}.pbs".format(args.cluster)).read()
     script = script.format(nodes=nodes, cpus=cpus, kepid=kepid,
@@ -86,9 +88,6 @@ if __name__ == "__main__":
         logging.info("Running command:")
         logging.info("    {0}".format(cmd))
         subprocess.check_call(cmd, shell=True)
-        # sys.exit(0)
-
-    import matplotlib.pyplot as pl
 
     logging.info("Generating folded light curve plots with initial model")
 
