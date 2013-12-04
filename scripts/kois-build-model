@@ -110,7 +110,7 @@ if __name__ == "__main__":
             ax.plot((d.time-t0+hp) % P - hp, d.flux, ".k", alpha=0.3, ms=3)
 
         # Plot the models.
-        t = np.linspace(-2*dur, 2*dur, 1000)
+        t = np.linspace(-4*dur, 4*dur, 1000)
         lc = kplr.EXPOSURE_TIMES[1]/86400.0
         axes[0].plot(t, model.get_light_curve(t+t0, K=5, texp=lc), "r", lw=2)
         sc = kplr.EXPOSURE_TIMES[0]/86400.0
@@ -122,7 +122,7 @@ if __name__ == "__main__":
             ax.set_ylim(1+1.2*ylim, 1-0.6*ylim)
 
         # Labels.
-        axes[0].set_xlim(-2*dur, 2*dur)
+        axes[0].set_xlim(-4*dur, 4*dur)
         axes[0].set_title("KOI {0}.{1:02d}, period = {2} days"
                           .format(koi, i+1, P))
         axes[1].set_xlabel("time since transit")

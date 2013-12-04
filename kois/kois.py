@@ -12,10 +12,10 @@ import numpy as np
 import kplr
 from kplr.ld import get_quad_coeffs
 
-import bart
 from bart.data import LightCurve
 
 from . import _kois
+from .ld import QuadraticLimbDarkening
 
 
 def load_system(kepid, lc_window_factor=4, sc_window_factor=4,
@@ -36,8 +36,7 @@ def load_system(kepid, lc_window_factor=4, sc_window_factor=4,
     teff = kois[0].koi_steff
     mu1, mu2 = get_quad_coeffs(teff if teff is not None else 5778)
     mu1 = max(0.0, mu1)
-    bins = np.sqrt(np.linspace(0, 1, ldp_nbins))[1:]
-    ldp = bart.ld.QuadraticLimbDarkening(mu1, mu2, bins)
+    ldp = QuadraticLimbDarkening(mu1, mu2, ldp_nbins)
 
     # Set up the model.
     model = Model(ldp, epoch_tol=sc_window_factor,
@@ -58,7 +57,8 @@ def load_system(kepid, lc_window_factor=4, sc_window_factor=4,
 
         # Convert the KOI duration to the b=0 duration that we need.
         full_durations = np.append(full_durations, koi.koi_duration/24.)
-        tau = (koi.koi_duration/24.) / np.sqrt((1+ror)**2 - b*b)
+        tau = koi.koi_duration/24.
+        # tau = (koi.koi_duration/24.) / np.sqrt((1+ror)**2 - b*b)
 
         # Add the KOI to the model.
         model.add_koi(P, t0, tau, ror, b)
@@ -137,17 +137,13 @@ class Model(object):
 
     @property
     def vector(self):
-        u1, u2 = self.ldp.gamma1, self.ldp.gamma2
-        u2 = u1+u2
-        return np.concatenate(([u2*u2, 0.5*u1/u2],
+        return np.concatenate(([self.ldp.q1, self.ldp.q2],
                                self.periods, self.epochs, self.durations,
                                self.rors, self.impacts))
 
     @vector.setter
     def vector(self, v):
-        q1, q2 = v[:2]
-        q1 = np.sqrt(q1)
-        self.ldp.gamma1, self.ldp.gamma2 = 2*q1*q2, q1*(1-2*q2)
+        self.ldp.q1, self.ldp.q2 = v[:2]
         self.periods, self.epochs, self.durations, self.rors, self.impacts \
             = v[2:].reshape([-1, len(self.periods)])
 
@@ -174,10 +170,7 @@ class Model(object):
 
     def lnprior(self):
         # Check the physicality of limb-darkening coefficients.
-        u1, u2 = self.ldp.gamma1, self.ldp.gamma2
-        u2 = u1+u2
-        q1, q2 = u2*u2, 0.5*u1/u2
-        if not (0.0 <= q1 <= 1.0 and 0.0 <= q2 <= 1.0):
+        if not (0.0 <= self.ldp.q1 <= 1.0 and 0.0 <= self.ldp.q2 <= 1.0):
             return -np.inf
 
         # Physical priors on other parameters.
