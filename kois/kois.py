@@ -20,7 +20,7 @@ from . import _kois
 
 def load_system(kepid, lc_window_factor=4, sc_window_factor=4,
                 detrend_window_factor=1.5, min_dataset_size=10, poly_order=1,
-                ldp_nbins=100):
+                ldp_nbins=500):
     client = kplr.API()
 
     logging.info("Getting the catalog parameters for KIC {0}"
@@ -36,7 +36,8 @@ def load_system(kepid, lc_window_factor=4, sc_window_factor=4,
     teff = kois[0].koi_steff
     mu1, mu2 = get_quad_coeffs(teff if teff is not None else 5778)
     mu1 = max(0.0, mu1)
-    ldp = bart.ld.QuadraticLimbDarkening(mu1, mu2, ldp_nbins)
+    bins = np.sqrt(np.linspace(0, 1, ldp_nbins))[1:]
+    ldp = bart.ld.QuadraticLimbDarkening(mu1, mu2, bins)
 
     # Set up the model.
     model = Model(ldp, epoch_tol=sc_window_factor,
@@ -136,13 +137,17 @@ class Model(object):
 
     @property
     def vector(self):
-        return np.concatenate(([self.ldp.gamma1, self.ldp.gamma2],
+        u1, u2 = self.ldp.gamma1, self.ldp.gamma2
+        u2 = u1+u2
+        return np.concatenate(([u2*u2, 0.5*u1/u2],
                                self.periods, self.epochs, self.durations,
                                self.rors, self.impacts))
 
     @vector.setter
     def vector(self, v):
-        self.ldp.gamma1, self.ldp.gamma2 = v[:2]
+        q1, q2 = v[:2]
+        q1 = np.sqrt(q1)
+        self.ldp.gamma1, self.ldp.gamma2 = 2*q1*q2, q1*(1-2*q2)
         self.periods, self.epochs, self.durations, self.rors, self.impacts \
             = v[2:].reshape([-1, len(self.periods)])
 
@@ -168,9 +173,11 @@ class Model(object):
                     for lc in self.datasets])
 
     def lnprior(self):
-        # Physical limb-darkening priors.
+        # Check the physicality of limb-darkening coefficients.
         u1, u2 = self.ldp.gamma1, self.ldp.gamma2
-        if u1 < 0.0 or u1+u2 > 1.0 or u1+2*u2 < 0:
+        u2 = u1+u2
+        q1, q2 = u2*u2, 0.5*u1/u2
+        if not (0.0 <= q1 <= 1.0 and 0.0 <= q2 <= 1.0):
             return -np.inf
 
         # Physical priors on other parameters.
