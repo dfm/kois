@@ -115,43 +115,46 @@ void lightcurve (int n, double *t, int K, double texp, int np,
         hpmt0 = hp - t0;
         duration = durations[k];
 
-        // // Compute the velocity based on the b=0 duration.
-        // v = 2.0 / duration;
-        //
-        // // Compute the b=impact transit time.
-        // delta_t = sqrt(opr2 - b*b) / v;
+        // Skip planets with no transits.
+        if (opr2 > b2) {
+            // // Compute the velocity based on the b=0 duration.
+            // v = 2.0 / duration;
+            //
+            // // Compute the b=impact transit time.
+            // delta_t = sqrt(opr2 - b2) / v;
 
-        // FIXME.
-        delta_t = 0.5 * duration;
-        v = 2 * sqrt(opr2 - b*b) / duration;
+            // FIXME.
+            delta_t = 0.5 * duration;
+            v = 2 * sqrt(opr2 - b2) / duration;
 
-        // Compute the impact parameter as a function of time.
-        for (i = 0; i < ntot; ++i) {
-            // Find the time since transit.
-            t1 = fmod(ttmp[i] + hpmt0, P) - hp;
+            // Compute the impact parameter as a function of time.
+            for (i = 0; i < ntot; ++i) {
+                // Find the time since transit.
+                t1 = fmod(ttmp[i] + hpmt0, P) - hp;
 
-            // If the planet is in transit, compute the impact parameter.
-            if (fabs(t1) < delta_t) {
-                t1 *= v;
-                btmp[i] = sqrt(b2 + t1*t1);
-                sgn[i] = 1;
-            } else sgn[i] = -1;
-        }
-
-        // Compute the light curve.
-        lightcurve_one (rors[k], nbins, r, ir, ntot, btmp, sgn, ftmp);
-
-        // Integrate over exposure time.
-        if (K > 1) {
-            for (i = 0; i < n; ++i) {
-                v = 0.0;
-                for (j = 0; j < K; ++j)
-                    v += ftmp[i*K+j];
-                f[i] *= v / K;
+                // If the planet is in transit, compute the impact parameter.
+                if (fabs(t1) < delta_t) {
+                    t1 *= v;
+                    btmp[i] = sqrt(b2 + t1*t1);
+                    sgn[i] = 1;
+                } else sgn[i] = -1;
             }
-        } else {
-            for (i = 0; i < n; ++i)
-                f[i] *= ftmp[i];
+
+            // Compute the light curve.
+            lightcurve_one (rors[k], nbins, r, ir, ntot, btmp, sgn, ftmp);
+
+            // Integrate over exposure time.
+            if (K > 1) {
+                for (i = 0; i < n; ++i) {
+                    v = 0.0;
+                    for (j = 0; j < K; ++j)
+                        v += ftmp[i*K+j];
+                    f[i] *= v / K;
+                }
+            } else {
+                for (i = 0; i < n; ++i)
+                    f[i] *= ftmp[i];
+            }
         }
     }
 
