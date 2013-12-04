@@ -35,8 +35,11 @@ def load_system(kepid, lc_window_factor=4, sc_window_factor=4,
     # Set up the initial limb-darkening profile.
     teff = kois[0].koi_steff
     mu1, mu2 = get_quad_coeffs(teff if teff is not None else 5778)
-    mu1 = max(0.0, mu1)
     ldp = QuadraticLimbDarkening(mu1, mu2, ldp_nbins)
+
+    # Hack to make sure that the parameters are physical.
+    ldp.q1 = min(0.9, max(0.1, ldp.q1))
+    ldp.q2 = min(0.9, max(0.1, ldp.q2))
 
     # Set up the model.
     model = Model(ldp, epoch_tol=sc_window_factor,
