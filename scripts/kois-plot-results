@@ -95,6 +95,8 @@ if __name__ == "__main__":
     # Find the MAP sample.
     w, ind = np.unravel_index(np.argmax(lnprob), lnprob.shape)
     map_vector = np.array(chain[w, ind, :])
+    print("MAP: ")
+    print(map_vector)
     model.vector = map_vector
     map_periods = np.array(model.periods)
     map_epochs = np.array(model.epochs)
@@ -118,24 +120,26 @@ if __name__ == "__main__":
                                                         map_durations, figs,
                                                         axes_list)):
             # Plot the models.
-            t = np.linspace(-4*dur, 4*dur, 1000)
+            t = np.linspace(-4*dur, 4*dur, 10000)
             lc = kplr.EXPOSURE_TIMES[1]/86400.0
             sc = kplr.EXPOSURE_TIMES[0]/86400.0
 
             if j == 0:
                 # Plot the folded datasets.
                 hp = 0.5 * P
-                model.vector = map_vector
                 for d in model.datasets:
                     ax = axes[0]
                     if d.texp < 0.01:
                         ax = axes[1]
                     ax.plot((d.time-t0+hp) % P - hp, d.flux, ".k", alpha=0.3,
                             ms=3)
+
+            if j == 99:
+                model.vector = map_vector
                 axes[0].plot(t, model.get_light_curve(t+t0, K=5, texp=lc), "b",
-                             alpha=1, lw=2)
+                             alpha=1, lw=1)
                 axes[1].plot(t, model.get_light_curve(t+t0, K=3, texp=sc), "b",
-                             alpha=1, lw=2)
+                             alpha=1, lw=1)
                 model.vector = thinned_chain[ind]
 
             axes[0].plot(t, model.get_light_curve(t+t0, K=5, texp=lc), "r",

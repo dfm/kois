@@ -54,13 +54,6 @@ void lightcurve_one (double p, int nbins, double *r, double *ir, int n,
     int i, j;
     double *areas = malloc(nbins * sizeof(double));
 
-    // First, compute the normalization constant by integrating over the face
-    // of the star.
-    double norm = ir[0] * r[0] * r[0];
-    for (i = 1; i < nbins; ++i)
-        norm += ir[i] * (r[i] * r[i] - r[i - 1] * r[i - 1]);
-    norm *= M_PI;
-
     // Compute the fraction of un-occulted flux for each time sample.
     for (i = 0; i < n; ++i) {
         if (sgn[i] >= 0) {
@@ -74,7 +67,7 @@ void lightcurve_one (double p, int nbins, double *r, double *ir, int n,
             lam[i] = areas[0] * ir[0];
             for (j = 1; j < nbins; ++j)
                 lam[i] += ir[j] * (areas[j] - areas[j - 1]);
-            lam[i] = 1.0 - lam[i] / norm;
+            lam[i] = 1.0 - lam[i];
         } else lam[i] = 1.0;
     }
 
@@ -90,8 +83,17 @@ void lightcurve (int n, double *t, int K, double texp, int np,
     int i, j, k, ntot = n * K, *sgn = malloc(ntot * sizeof(int));
     double t1, delta_t, v, b, b2, opr2, t0, P, hp, hpmt0, duration,
            *ttmp,
+           *irtmp = malloc(nbins * sizeof(double)),
            *ftmp = malloc(ntot * sizeof(double)),
            *btmp = malloc(ntot * sizeof(double));
+
+    // First, compute the normalization constant by integrating over the face
+    // of the star.
+    double norm = ir[0] * r[0] * r[0];
+    for (i = 1; i < nbins; ++i)
+        norm += ir[i] * (r[i] * r[i] - r[i - 1] * r[i - 1]);
+    norm *= M_PI;
+    for (i = 0; i < nbins; ++i) irtmp[i] = ir[i] / norm;
 
     if (K > 1) ttmp = malloc(ntot * sizeof(double));
     else ttmp = t;
@@ -141,7 +143,7 @@ void lightcurve (int n, double *t, int K, double texp, int np,
             }
 
             // Compute the light curve.
-            lightcurve_one (rors[k], nbins, r, ir, ntot, btmp, sgn, ftmp);
+            lightcurve_one (rors[k], nbins, r, irtmp, ntot, btmp, sgn, ftmp);
 
             // Integrate over exposure time.
             if (K > 1) {
@@ -159,6 +161,7 @@ void lightcurve (int n, double *t, int K, double texp, int np,
     }
 
     if (K > 1) free(ttmp);
+    free(irtmp);
     free(ftmp);
     free(btmp);
     free(sgn);
