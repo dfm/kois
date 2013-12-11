@@ -6,6 +6,7 @@ from setuptools import setup, Extension
 
 includes = [
     "kois",
+    "boost_1_55_0",
     numpy.get_include(),
 ]
 

@@ -66,6 +66,7 @@ def load_system(kepid, lc_window_factor=4, sc_window_factor=4,
         # Add the KOI to the model.
         model.add_koi(P, t0, tau, ror, b)
 
+
     # Load the light curves.
     logging.info("Loading datasets")
     lcs = koi.get_light_curves()
@@ -80,12 +81,15 @@ def load_system(kepid, lc_window_factor=4, sc_window_factor=4,
                 else kplr.EXPOSURE_TIMES[0])
         factor = (lc_window_factor if lc.sci_archive_class == "CLC"
                   else sc_window_factor)
+        window = np.array([max(factor*d,
+                           lc_window_factor*d+5*kplr.EXPOSURE_TIMES[1]/86400.)
+                           for d in full_durations])
         data = KOILightCurve(data["TIME"][m],
                              data["PDCSAP_FLUX"][m],
                              data["PDCSAP_FLUX_ERR"][m], texp=texp,
                              K=5 if lc.sci_archive_class == "CLC" else 3)
         datasets += (data.active_window(model.periods, model.epochs,
-                                        factor*full_durations)
+                                        window)
                      .autosplit())
 
     # Remove datasets with not enough data points.
@@ -190,7 +194,7 @@ class Model(object):
             return -np.inf
         if np.any(self.durations < 0) or np.any(self.durations > 10):
             return -np.inf
-        if np.any(self.rors < 0) or np.any(self.rors > 1):
+        if np.any(self.rors < 1e-4) or np.any(self.rors > 1):
             return -np.inf
 
         # Priors based on trimming of the datasets.
@@ -202,7 +206,7 @@ class Model(object):
                   self.period_tol * self.initial_durations):
             return -np.inf
 
-        return 0.0
+        return -2*np.sum(np.log(self.rors))
 
     def lnprob(self):
         lp = self.lnprior()

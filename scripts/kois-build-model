@@ -111,7 +111,7 @@ if __name__ == "__main__":
         # Plot the models.
         t = np.linspace(-4*dur, 4*dur, 1000)
         lc = kplr.EXPOSURE_TIMES[1]/86400.0
-        axes[0].plot(t, model.get_light_curve(t+t0, K=5, texp=lc), "r", lw=2)
+        axes[0].plot(t, model.get_light_curve(t+t0, K=8, texp=lc), "r", lw=2)
         sc = kplr.EXPOSURE_TIMES[0]/86400.0
         axes[1].plot(t, model.get_light_curve(t+t0, K=3, texp=sc), "r", lw=2)
 
