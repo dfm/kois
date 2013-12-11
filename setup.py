@@ -9,7 +9,8 @@ includes = [
     numpy.get_include(),
 ]
 
-kois = Extension("kois._kois", ["kois/_kois.c", "kois/lightcurve.c"],
+kois = Extension("kois._kois", ["kois/_kois.c", "kois/lightcurve.c",
+                                "kois/quad.cpp"],
                  include_dirs=includes)
 
 setup(

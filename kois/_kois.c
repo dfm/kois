@@ -19,12 +19,12 @@ static struct module_state _state;
 PyObject *kois_light_curve (PyObject *self, PyObject *args)
 {
     int K;
-    double texp;
+    double texp, mu1, mu2;
     PyObject *t_obj, *periods_obj, *epochs_obj, *durations_obj,
-             *rors_obj, *impacts_obj, *r_obj, *ir_obj;
-    if (!PyArg_ParseTuple(args, "OidOOOOOOO", &t_obj, &K, &texp, &periods_obj,
+             *rors_obj, *impacts_obj;
+    if (!PyArg_ParseTuple(args, "OidOOOOOdd", &t_obj, &K, &texp, &periods_obj,
                           &epochs_obj, &durations_obj, &rors_obj,
-                          &impacts_obj, &r_obj, &ir_obj))
+                          &impacts_obj, &mu1, &mu2))
         return NULL;
 
     PyArrayObject *t_array = PARSE_ARRAY(t_obj),
@@ -32,13 +32,10 @@ PyObject *kois_light_curve (PyObject *self, PyObject *args)
                   *epochs_array = PARSE_ARRAY(epochs_obj),
                   *durations_array = PARSE_ARRAY(durations_obj),
                   *rors_array = PARSE_ARRAY(rors_obj),
-                  *impacts_array = PARSE_ARRAY(impacts_obj),
-                  *r_array = PARSE_ARRAY(r_obj),
-                  *ir_array = PARSE_ARRAY(ir_obj);
+                  *impacts_array = PARSE_ARRAY(impacts_obj);
 
     int n = (int) PyArray_DIM(t_array, 0),
-        np = (int) PyArray_DIM(periods_array, 0),
-        nld = (int) PyArray_DIM(r_array, 0);
+        np = (int) PyArray_DIM(periods_array, 0);
 
     npy_intp dim[1] = {n};
     PyArrayObject *flux_array =
@@ -50,12 +47,10 @@ PyObject *kois_light_curve (PyObject *self, PyObject *args)
            *durations = PyArray_DATA(durations_array),
            *rors = PyArray_DATA(rors_array),
            *impacts = PyArray_DATA(impacts_array),
-           *r = PyArray_DATA(r_array),
-           *ir = PyArray_DATA(ir_array),
            *f = PyArray_DATA(flux_array);
 
     lightcurve (n, t, K, texp, np, periods, epochs, durations, rors, impacts,
-                nld, r, ir, f);
+                mu1, mu2, f);
 
     Py_DECREF(t_array);
     Py_DECREF(periods_array);
@@ -63,8 +58,6 @@ PyObject *kois_light_curve (PyObject *self, PyObject *args)
     Py_DECREF(durations_array);
     Py_DECREF(rors_array);
     Py_DECREF(impacts_array);
-    Py_DECREF(r_array);
-    Py_DECREF(ir_array);
 
     return (PyObject*)flux_array;
 }

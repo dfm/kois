@@ -71,7 +71,10 @@ def load_system(kepid, lc_window_factor=4, sc_window_factor=4,
     lcs = koi.get_light_curves()
     datasets = []
     for lc in lcs:
-        data = lc.read()
+        try:
+            data = lc.read()
+        except:
+            continue
         m = data["SAP_QUALITY"] == 0
         texp = (kplr.EXPOSURE_TIMES[1] if lc.sci_archive_class == "CLC"
                 else kplr.EXPOSURE_TIMES[0])
@@ -163,9 +166,10 @@ class Model(object):
         self.initial_durations = np.array(self.durations)
 
     def get_light_curve(self, t, K=1, texp=0):
+        mu1, mu2 = self.ldp.coeffs
         return _kois.light_curve(t, K, texp, self.periods, self.epochs,
                                  self.durations, self.rors, self.impacts,
-                                 self.ldp.bins, self.ldp.intensity)
+                                 mu1, mu2)
 
     def lnlike(self):
         return sum([lc.lnlike(self.get_light_curve(lc.time, lc.K, lc.texp))
