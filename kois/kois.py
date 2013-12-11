@@ -188,7 +188,7 @@ class Model(object):
             return -np.inf
         if np.any(self.impacts < 0) or np.any(self.impacts > 2):
             return -np.inf
-        if np.any(self.durations < 0):
+        if np.any(self.durations < 0) or np.any(self.durations > 10):
             return -np.inf
         if np.any(self.rors < 0) or np.any(self.rors > 1):
             return -np.inf
