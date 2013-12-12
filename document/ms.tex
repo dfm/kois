@@ -149,6 +149,64 @@ T_\mathrm{tot} \approx \duration \, \sqrt{(1+\ror)^2 - \impact^2}
 \item{Integration over exposure time}
 \end{itemize}
 
+\section{The empirical radius distribution}
+
+The problem of determining the empirical distribution of exoplanet radii
+without taking selection effects into account (see Foreman-Mackey \etal\ in
+prep), can be written as a hierarchical inference problem.
+We have samples from the posterior probability distribution
+\begin{eqnarray}
+z^{(j)} &\sim& p(z\,|\,x,\,\alpha_0)
+\end{eqnarray}
+where $z$ is the radius ratio, $x$ is the light curve, and $\alpha_0$ are the
+parameters of the interim prior $p(z\,|\,\alpha_0)$.
+Instead, we would like to compute and/or sample the parameters describing the
+distribution of physical radii $p(r\,|\,\alpha)$.
+To do this, we must compute the \emph{marginalized likelihood}
+\begin{eqnarray}\eqlabel{marg-like}
+p(x,\,\hat{R}\,|\,\alpha) &=&
+    \int \dd r\dd R\dd z\,\prod_n p(R_n)\,p(\hat{R}_n\,|\,R_n)
+        \prod_k p(r_{nk}\,|\,\alpha)\,p(z_{nk}\,|\,R_n,\,r_{nk})\,
+                p(x\,|\,z_{nk}) \quad.
+\end{eqnarray}
+We can rewrite the inner term---using the fact that
+$p(z_{nk}\,|\,R_n,\,r_{nk})\equiv\delta(r_{nk}-R_n\cdot z_{nk})$---as
+\begin{eqnarray}
+p_{nk}(x\,|\,R_n,\,\alpha)&=&
+\int \dd r_{nk}\dd z_{nk}\,p(r_{nk}\,|\,\alpha)\,p(z_{nk}\,|\,R_n,\,r_{nk})\,
+        p(x\,|\,z_{nk}) \nonumber\\
+&=&
+\int \dd z_{nk}\,p(z_{nk} \cdot R_n\,|\,\alpha)\,p(x\,|\,z_{nk}) \nonumber\\
+&=&
+\int \dd z_{nk}\,p(z_{nk}\cdot R_n\,|\,\alpha)\,p(x\,|\,z_{nk})\,
+\frac{p(z_{nk}\,|\,x,\,\alpha_0)}{p(z_{nk}\,|\,x,\,\alpha_0)} \nonumber\\
+&\propto&
+\int \dd z_{nk}\,\frac{p(z_{nk}\cdot R_n\,|\,\alpha)}{p(z_{nk}\,|\,\alpha_0)}\,
+p(z_{nk}\,|\,x,\,\alpha_0) \nonumber\\
+&\approx&
+\frac{1}{J_{nk}}
+\sum_j \frac{p(z_{nk}^{(j)}\cdot R_n\,|\,\alpha)}{p(z_{nk}^{(j)}\,|\,\alpha_0)}
+\end{eqnarray}
+
+The integral over stellar radius can also be approximated using posterior
+samples
+\begin{eqnarray}
+R^{(l)} &\sim& p(R\,|\,\hat{R}) \quad.
+\end{eqnarray}
+Here, we're not trying to simultaneously infer the distribution of stellar
+parameters.
+This simplifies matters and the full integral in \eq{marg-like} can be
+approximated as
+\begin{eqnarray}
+\frac{p(x,\,\hat{R}\,|\,\alpha)}{p(x,\,\hat{R}\,|\,\alpha_0)}
+&\approx& \prod_n \frac{1}{L_n} \sum_{l=1}^{L_n} \prod_k
+\frac{1}{J_{nk}} \sum_{j=1}^{J_{nk}}
+\frac{p(z_{nk}^{(j)}\cdot R_n\,|\,\alpha)}{p(z_{nk}^{(j)}\,|\,\alpha_0)}
+\quad.
+\end{eqnarray}
+This ratio can now be computed efficiently for different values $\alpha$ and
+optimized or you can set priors $p(\alpha)$ and sample.
+
 \acknowledgments
 It is a pleasure to thank
     Tom Barclay (NASA Ames),
