@@ -7,6 +7,7 @@ import kplr
 import h5py
 import logging
 import triangle
+import subprocess
 import numpy as np
 import cPickle as pickle
 import matplotlib.pyplot as pl
@@ -15,24 +16,31 @@ from matplotlib.ticker import MaxNLocator
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Build a KOI model")
-    parser.add_argument("basedir", help="The path to the model directory")
+    parser.add_argument("kicid", help="The path to the model directory")
     parser.add_argument("-b", "--burnin", default=0, type=int,
                         help="The number of steps to discard")
-    parser.add_argument("-t", "--thin", default=1, type=int,
+    parser.add_argument("-t", "--thin", default=None, type=int,
                         help="The number of steps to skip when thinning")
     parser.add_argument("-o", "--outdir", default=None,
                         help="The directory where the output files will be "
                         "written")
     parser.add_argument("--triangle", action="store_true",
                         help="Make the triangle plot")
+    parser.add_argument("-f", "--fetch", action="store_true")
     args = parser.parse_args()
 
+    if args.fetch:
+        subprocess.check_call("scripts/kois-fetch-results {0}"
+                              .format(args.kicid), shell=True)
+
     # logging.basicConfig(level=logging.INFO)
+
+    basedir = os.path.join("models", "{0}".format(args.kicid))
 
     # Set up the output directory.
     outdir = args.outdir
     if outdir is None:
-        outdir = args.basedir
+        outdir = basedir
     try:
         os.makedirs(outdir)
     except os.error:
@@ -40,9 +48,9 @@ if __name__ == "__main__":
 
     # Load the pickled model.
     logging.info("Loading the precomputed model.")
-    model = pickle.load(open(os.path.join(args.basedir, "model.pkl")))
+    model = pickle.load(open(os.path.join(basedir, "model.pkl")))
     # columns = [c.strip()
-    #            for c in open(os.path.join(args.basedir, "mcmc.txt"))
+    #            for c in open(os.path.join(basedir, "mcmc.txt"))
     #            .readline()[1:].split()]
     n = len(model.periods)
     columns = (["g1", "g2"] +
@@ -54,11 +62,11 @@ if __name__ == "__main__":
 
     # Load the results.
     print("Loading samples")
-    # samples = np.loadtxt(os.path.join(args.basedir, "mcmc.txt"))
+    # samples = np.loadtxt(os.path.join(basedir, "mcmc.txt"))
     # niter, nwalkers = int(samples[-1, 0])+1, int(samples[-1, 1])+1
     # chain = samples.reshape((niter, nwalkers, -1))
     # chain = chain[:, :, 2:]
-    with h5py.File(os.path.join(args.basedir, "mcmc.h5"), "r") as f:
+    with h5py.File(os.path.join(basedir, "mcmc.h5"), "r") as f:
         i = f.attrs["iteration"]
         chain = f["samples"][:, :i, :]
         lnprob = f["lnprob"][:, :i]
@@ -67,7 +75,8 @@ if __name__ == "__main__":
     import acor
     tau = np.array([acor.acor(chain[:, args.burnin:, ind])[0]
                     for ind in range(ndim)])
-    print((niter - args.burnin) / tau)
+    print("acor time: {0}".format(tau))
+    print("n ind samples: {0}".format((niter - args.burnin) / tau))
 
     # Plot the time series.
     print("Making time series plots")
@@ -109,7 +118,9 @@ if __name__ == "__main__":
                             for i in range(nplanets)])
     [figure.subplots_adjust(left=0.17, bottom=0.1, right=0.9, top=0.9,
                             wspace=0.05, hspace=0.05) for figure in figs]
-    thinned_chain = chain[:, args.burnin::args.thin, :]
+    thin = args.thin if args.thin is not None else int(np.min(tau))
+    print("Thinning by {0}".format(thin))
+    thinned_chain = chain[:, args.burnin::thin, :]
     thinned_chain = thinned_chain.reshape((nwalkers*thinned_chain.shape[1],
                                            -1))
     for j, ind in enumerate(np.random.randint(len(thinned_chain), size=100)):
@@ -161,7 +172,7 @@ if __name__ == "__main__":
                           .format(i+1, P))
         axes[1].set_xlabel("time since transit")
 
-        fig.savefig(os.path.join(args.basedir, "final-lc-{0:02d}.png"
+        fig.savefig(os.path.join(basedir, "final-lc-{0:02d}.png"
                                  .format(i+1)))
 
     # Plot the triangle plot.
@@ -170,7 +181,7 @@ if __name__ == "__main__":
 
     print("Making triangle plot")
     cs = np.concatenate((thinned_chain, np.atleast_2d(
-        lnprob[:, args.burnin::args.thin].flatten()).T), axis=1)
+        lnprob[:, args.burnin::thin].flatten()).T), axis=1)
     fig = triangle.corner(cs, labels=columns+["lnprob"],
                           quantiles=[0.16, 0.5, 0.84])
     fig.savefig(os.path.join(outdir, "triangle.png"))
