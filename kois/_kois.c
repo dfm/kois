@@ -18,13 +18,13 @@ static struct module_state _state;
 
 PyObject *kois_light_curve (PyObject *self, PyObject *args)
 {
-    int K;
-    double texp, mu1, mu2;
+    int K, max_depth;
+    double texp, mu1, mu2, tol;
     PyObject *t_obj, *periods_obj, *epochs_obj, *durations_obj,
              *rors_obj, *impacts_obj;
-    if (!PyArg_ParseTuple(args, "OidOOOOOdd", &t_obj, &K, &texp, &periods_obj,
+    if (!PyArg_ParseTuple(args, "OidOOOOOdddi", &t_obj, &K, &texp, &periods_obj,
                           &epochs_obj, &durations_obj, &rors_obj,
-                          &impacts_obj, &mu1, &mu2))
+                          &impacts_obj, &mu1, &mu2, &tol, &max_depth))
         return NULL;
 
     PyArrayObject *t_array = PARSE_ARRAY(t_obj),
@@ -50,7 +50,7 @@ PyObject *kois_light_curve (PyObject *self, PyObject *args)
            *f = PyArray_DATA(flux_array);
 
     lightcurve (n, t, K, texp, np, periods, epochs, durations, rors, impacts,
-                mu1, mu2, f);
+                mu1, mu2, tol, max_depth, f);
 
     Py_DECREF(t_array);
     Py_DECREF(periods_array);

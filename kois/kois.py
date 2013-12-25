@@ -66,7 +66,6 @@ def load_system(kepid, lc_window_factor=4, sc_window_factor=4,
         # Add the KOI to the model.
         model.add_koi(P, t0, tau, ror, b)
 
-
     # Load the light curves.
     logging.info("Loading datasets")
     lcs = koi.get_light_curves()
@@ -132,7 +131,8 @@ class KOILightCurve(LightCurve):
 
 class Model(object):
 
-    def __init__(self, ldp, epoch_tol=1.0, period_tol=7e-4):
+    def __init__(self, ldp, epoch_tol=1.0, period_tol=7e-4, tol=1e-7,
+                 max_depth=4):
         self.ldp = ldp
         self.datasets = []
 
@@ -144,6 +144,9 @@ class Model(object):
 
         self.epoch_tol = epoch_tol
         self.period_tol = period_tol
+
+        self.tol = tol
+        self.max_depth = max_depth
 
     @property
     def vector(self):
@@ -173,7 +176,7 @@ class Model(object):
         mu1, mu2 = self.ldp.coeffs
         return _kois.light_curve(t, K, texp, self.periods, self.epochs,
                                  self.durations, self.rors, self.impacts,
-                                 mu1, mu2)
+                                 mu1, mu2, self.tol, self.max_depth)
 
     def lnlike(self):
         return sum([lc.lnlike(self.get_light_curve(lc.time, lc.K, lc.texp))

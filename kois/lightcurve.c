@@ -54,7 +54,7 @@ double lc_integrate (double t, double f0, double texp, int np,
 void lightcurve (int n, double *t, int K, double texp, int np,
                  double *periods, double *epochs, double *durations,
                  double *rors, double *impacts, double mu1, double mu2,
-                 double *f)
+                 double tol, int max_depth, double *f)
 {
     int i;
     double f0;
@@ -63,6 +63,6 @@ void lightcurve (int n, double *t, int K, double texp, int np,
         f0 = lc_evaluate(t[i], np, periods, epochs, durations, rors, impacts,
                          mu1, mu2);
         f[i] = lc_integrate(t[i], f0, texp, np, periods, epochs, durations,
-                            rors, impacts, mu1, mu2, 1e-7, 0, 4);
+                            rors, impacts, mu1, mu2, tol, 0, max_depth);
     }
 }
