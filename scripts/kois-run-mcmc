@@ -66,7 +66,6 @@ if not pool.is_master():
 ndim = len(model.vector)
 if args.nwalkers is None:
     nwalkers = int(max(np.ceil(ndim/12.0), 2)*24)
-    # nwalkers = int(2 ** np.ceil(np.log2(ndim) + 1))
 else:
     nwalkers = args.nwalkers
 logging.info("Sampling {0} parameters with {1} walkers".format(ndim,
@@ -140,12 +139,19 @@ if not args.restart:
     sampler.reset()
 
 # Do the sampling.
+batch_size = 500
+pos_tmp = np.empty((nwalkers, batch_size, ndim))
+lp_tmp = np.empty((nwalkers, batch_size))
 for i, (pos, lp, state) in enumerate(sampler.sample(p0, iterations=ntot,
                                                     storechain=False)):
-    print(i, np.mean(sampler.acceptance_fraction))
-    with h5py.File(results_filename) as f:
-        f.attrs["iteration"] = iteration0+i
-        f["samples"][:, i, :] = pos
-        f["lnprob"][:, i] = lp
+    j = i % batch_size
+    pos_tmp[:, j, :] = pos
+    lp_tmp[:, j] = lp
+    if j == batch_size - 1:
+        print(i, np.mean(sampler.acceptance_fraction))
+        with h5py.File(results_filename) as f:
+            f.attrs["iteration"] = iteration0+i
+            f["samples"][:, i-batch_size+1:i+1, :] = pos_tmp
+            f["lnprob"][:, i-batch_size+1:i+1] = lp_tmp
 
 pool.close()

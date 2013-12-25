@@ -2,19 +2,31 @@
 # -*- coding: utf-8 -*-
 
 import os
-import kplr
+import sys
 import logging
 import numpy as np
 import cPickle as pickle
 import matplotlib.pyplot as pl
 
-import kois
+import kplr
+from kplr.ld import get_quad_coeffs
+
+from kois.ld import QuadraticLimbDarkening
+from kois.kois import Model, KOILightCurve
 
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Build a KOI model")
-    parser.add_argument("kepid", type=int, help="The KIC ID")
+    parser.add_argument("koi_id", help="The KOI number")
+    parser.add_argument("--window_factor", default=4, type=float,
+                        help="The number of transit durations in the data "
+                             "window")
+    parser.add_argument("--detrend_factor", default=1.5, type=float,
+                        help="The number of transit durations to mask when "
+                             "de-trending")
+    parser.add_argument("--poly_order", default=1, type=int,
+                        help="The order of polynomial to use for de-trending")
     parser.add_argument("-o", "--outdir", default=None,
                         help="The directory where the output files will be "
                         "written")
@@ -24,39 +36,94 @@ if __name__ == "__main__":
                         help="Generate the PBS script")
     parser.add_argument("--submit", action="store_true",
                         help="Submit the job to the cluster")
-    parser.add_argument("-c", "--cluster", default="bowery",
+    parser.add_argument("-c", "--cluster", default="butinah",
                         help="The cluster name")
     args = parser.parse_args()
-
     logging.basicConfig(level=logging.INFO)
+    koi_id = args.koi_id
 
-    kepid = args.kepid
+    # Set up the model.
+    client = kplr.API()
+    koi = client.koi(koi_id)
+    if koi.koi_disposition not in ["CANDIDATE", "CONFIRMED"]:
+        print("That KOI is not a candidate or confirmed system")
+        sys.exit(1)
+
+    # Limb darkening and initial model.
+    teff = koi.koi_steff
+    mu1, mu2 = get_quad_coeffs(teff if teff is not None else 5778)
+    ldp = QuadraticLimbDarkening(mu1, mu2)
+    ldp.q1 = min(0.9, max(0.1, ldp.q1))
+    ldp.q2 = min(0.9, max(0.1, ldp.q2))
+    window_factor = args.window_factor
+    model = Model(ldp, epoch_tol=window_factor, period_tol=window_factor*3e-4)
+
+    # Download and trim the datasets.
+    model.add_koi(koi.koi_period, koi.koi_time0bk % koi.koi_period,
+                  koi.koi_duration / 24.0, koi.koi_ror, koi.koi_impact)
+
+    # Load the light curves.
+    logging.info("Loading datasets")
+    datasets = []
+    for lc in koi.get_light_curves():
+        try:
+            data = lc.read()
+        except:
+            continue
+        m = data["SAP_QUALITY"] == 0
+        texp = (kplr.EXPOSURE_TIMES[1] if lc.sci_archive_class == "CLC"
+                else kplr.EXPOSURE_TIMES[0])
+        window = np.array([max(window_factor*d,
+                           window_factor*d+5*kplr.EXPOSURE_TIMES[1]/86400.)
+                           for d in model.durations])
+        data = KOILightCurve(data["TIME"][m],
+                             data["PDCSAP_FLUX"][m],
+                             data["PDCSAP_FLUX_ERR"][m], texp=texp,
+                             K=5 if lc.sci_archive_class == "CLC" else 3)
+        datasets += (data.active_window(model.periods, model.epochs,
+                                        window)
+                     .autosplit())
+
+    # Remove datasets with not enough data points.
+    datasets = [d for d in datasets if len(d.time) > 10]
+    if not len(datasets):
+        raise RuntimeError("No datasets survived the cuts.")
+    logging.info("{0} datasets were found and trimmed".format(len(datasets)))
+
+    # De-trend the data.
+    model.datasets += [d for d in datasets
+                       if d.remove_polynomial(model.periods, model.epochs,
+                                              args.detrend_factor
+                                              * model.durations,
+                                              args.poly_order)]
+    logging.info("{0} datasets were de-trended".format(len(model.datasets)))
+    if not len(datasets):
+        raise RuntimeError("No datasets could be de-trended.")
 
     # Set up the output directory.
     outdir = args.outdir
     if outdir is None:
-        outdir = "models"
-    outdir = os.path.join(outdir, "{0}".format(kepid))
+        outdir = "results"
+    outdir = os.path.join(outdir, "{0}".format(koi_id))
 
     try:
         os.makedirs(outdir)
     except os.error:
         logging.info("Output directory '{0}' exists".format(outdir))
 
-    koi, model = kois.load_system(kepid)
+    # Save the initial model.
     pickle.dump(model, open(os.path.join(outdir, "model.pkl"), "wb"), -1)
     ndim = len(model.vector)
     nodes = int(max(np.ceil(ndim/12.0), 2))
     nwalkers = 24 * nodes
     logging.info("Sampling {0} parameters with {1} walkers".format(ndim,
                                                                    nwalkers))
-    logging.info("    ({0} planets)".format(len(model.periods)))
-
+    logging.info("    [{0} planet(s)]".format(len(model.periods)))
     logging.info("Initial lnprob: {0}".format(model.lnprob()))
 
     cpus = nodes * 12
     script = open("templates/{0}.pbs".format(args.cluster)).read()
-    script = script.format(nodes=nodes, cpus=cpus, kepid=kepid,
+    script = script.format(nodes=nodes, cpus=cpus, koi_id=koi_id,
                            nwalkers=nwalkers)
 
     with open(os.path.join(outdir, "job.pbs"), "w") as f:
@@ -68,7 +135,7 @@ if __name__ == "__main__":
 
         # Make sure that the remote directory exists.
         cmd = ("ssh {1} \"mkdir -p /scratch/dfm265/kois/{0}\""
-               .format(kepid, args.cluster))
+               .format(koi_id, args.cluster))
         logging.info("Running command:")
         logging.info("    {0}".format(cmd))
         subprocess.check_call(cmd, shell=True)
@@ -77,14 +144,14 @@ if __name__ == "__main__":
         files = map(lambda f: os.path.join(outdir, f),
                     ["model.pkl", "job.pbs"])
         cmd = ("scp -r {0} {2}:/scratch/dfm265/kois/{1}"
-               .format(" ".join(files), kepid, args.cluster))
+               .format(" ".join(files), koi_id, args.cluster))
         logging.info("Running command:")
         logging.info("    {0}".format(cmd))
         subprocess.check_call(cmd, shell=True)
 
         # Queue the job.
         cmd = ("ssh {1} \"qsub /scratch/dfm265/kois/{0}/job.pbs\""
-               .format(kepid, args.cluster))
+               .format(koi_id, args.cluster))
         logging.info("Running command:")
         logging.info("    {0}".format(cmd))
         subprocess.check_call(cmd, shell=True)
@@ -93,37 +160,34 @@ if __name__ == "__main__":
 
     nplanets = len(model.periods)
 
-    for i, (P, t0, dur) in enumerate(zip(model.periods, model.epochs,
-                                         model.durations)):
-        fig, axes = pl.subplots(2, 1, figsize=(6, 6),
-                                sharex=True)
-        fig.subplots_adjust(left=0.17, bottom=0.1, right=0.9,
-                            top=0.9, wspace=0.05, hspace=0.05)
+    P, t0, dur = model.periods[0], model.epochs[0], model.durations[0]
+    fig, axes = pl.subplots(2, 1, figsize=(6, 6),
+                            sharex=True)
+    fig.subplots_adjust(left=0.17, bottom=0.1, right=0.9,
+                        top=0.9, wspace=0.05, hspace=0.05)
 
-        # Plot the folded datasets.
-        hp = 0.5 * P
-        for d in model.datasets:
-            ax = axes[0]
-            if d.texp < 0.01:
-                ax = axes[1]
-            ax.plot((d.time-t0+hp) % P - hp, d.flux, ".k", alpha=0.3, ms=3)
+    # Plot the folded datasets.
+    hp = 0.5 * P
+    for d in model.datasets:
+        ax = axes[0]
+        if d.texp < 0.01:
+            ax = axes[1]
+        ax.plot((d.time-t0+hp) % P - hp, d.flux, ".k", alpha=0.3, ms=3)
 
-        # Plot the models.
-        t = np.linspace(-4*dur, 4*dur, 1000)
-        lc = kplr.EXPOSURE_TIMES[1]/86400.0
-        axes[0].plot(t, model.get_light_curve(t+t0, K=8, texp=lc), "r", lw=2)
-        sc = kplr.EXPOSURE_TIMES[0]/86400.0
-        axes[1].plot(t, model.get_light_curve(t+t0, K=3, texp=sc), "r", lw=2)
+    # Plot the models.
+    t = np.linspace(-4*dur, 4*dur, 1000)
+    lc = kplr.EXPOSURE_TIMES[1]/86400.0
+    axes[0].plot(t, model.get_light_curve(t+t0, K=8, texp=lc), "r", lw=2)
+    sc = kplr.EXPOSURE_TIMES[0]/86400.0
+    axes[1].plot(t, model.get_light_curve(t+t0, K=3, texp=sc), "r", lw=2)
 
-        # Set the y-axis limits.
-        for ax in axes:
-            ylim = min(ax.get_ylim()[0] - 1, -1e-3)
-            ax.set_ylim(1+1.2*ylim, 1-0.6*ylim)
+    # Set the y-axis limits.
+    for ax in axes:
+        ylim = min(ax.get_ylim()[0] - 1, -1e-3)
+        ax.set_ylim(1+1.2*ylim, 1-0.6*ylim)
 
-        # Labels.
-        axes[0].set_xlim(-4*dur, 4*dur)
-        axes[0].set_title("KOI {0}.{1:02d}, period = {2} days"
-                          .format(koi, i+1, P))
-        axes[1].set_xlabel("time since transit")
-        fig.savefig(os.path.join(outdir,
-                                 "light-curve-{0:02d}.png".format(i+1)))
+    # Labels.
+    axes[0].set_xlim(-4*dur, 4*dur)
+    axes[0].set_title("KOI {0}, period = {1} days".format(koi_id, P))
+    axes[1].set_xlabel("time since transit")
+    fig.savefig(os.path.join(outdir, "light-curve.png"))

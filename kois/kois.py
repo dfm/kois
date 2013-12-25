@@ -174,7 +174,7 @@ class Model(object):
 
     def get_light_curve(self, t, K=1, texp=0):
         mu1, mu2 = self.ldp.coeffs
-        return _kois.light_curve(t, K, texp, self.periods, self.epochs,
+        return _kois.light_curve(t, texp, self.periods, self.epochs,
                                  self.durations, self.rors, self.impacts,
                                  mu1, mu2, self.tol, self.max_depth)
 

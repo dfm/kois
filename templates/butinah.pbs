@@ -2,13 +2,13 @@
 
 #PBS -l nodes={nodes}:ppn=12,walltime=48:00:00
 #PBS -q p48
-#PBS -N kepler{kepid}
+#PBS -N koi-{koi_id}
 #PBS -M dfm265@nyu.edu
 #PBS -m abe
 #PBS -e localhost:$PBS_O_WORKDIR/${{PBS_JOBNAME}}.e${{PBS_JOBID}}
 #PBS -o localhost:$PBS_O_WORKDIR/${{PBS_JOBNAME}}.o${{PBS_JOBID}}
 
-cd /scratch/dfm265/kois/{kepid}
+cd /scratch/dfm265/kois/{koi_id}
 
 mpiexec -np {cpus} -hostfile $PBS_NODEFILE /share/apps/mpi4py/1.3/openmpi/intel/lib/python/mpi4py/bin/python-mpi /home/dfm265/projects/kois/scripts/kois-run-mcmc model.pkl --nwalkers {nwalkers} &> output.log
 
