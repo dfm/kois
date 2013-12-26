@@ -8,7 +8,7 @@ import subprocess
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Build a KOI model")
-    parser.add_argument("kepid", type=int, help="The KIC ID")
+    parser.add_argument("koi_id", help="The KOI number")
     parser.add_argument("-o", "--outdir", default=None,
                         help="The directory where the output files will be "
                         "written")
@@ -16,17 +16,17 @@ if __name__ == "__main__":
                         help="The name of the cluster")
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO)
-    kepid = args.kepid
+    koi_id = args.koi_id
 
     # Set up the output directory.
     outdir = args.outdir
     if outdir is None:
-        outdir = "models"
-    outdir = os.path.join(outdir, "{0}".format(kepid))
+        outdir = "results"
+    outdir = os.path.join(outdir, "{0}".format(koi_id))
 
     # Copy the precomputed model.
     files = map(lambda f: "{2}:/scratch/dfm265/kois/{0}/{1}"
-                .format(kepid, f, args.cluster),
+                .format(koi_id, f, args.cluster),
                 ["model.pkl", "mcmc.h5"])
     cmd = "scp {0} {1}".format(" ".join(files), outdir)
     logging.info("Running command:")

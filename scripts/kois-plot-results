@@ -16,7 +16,7 @@ from matplotlib.ticker import MaxNLocator
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Build a KOI model")
-    parser.add_argument("kicid", help="The path to the model directory")
+    parser.add_argument("koi_id", help="The KOI number")
     parser.add_argument("-b", "--burnin", default=0, type=int,
                         help="The number of steps to discard")
     parser.add_argument("-t", "--thin", default=None, type=int,
@@ -31,11 +31,11 @@ if __name__ == "__main__":
 
     if args.fetch:
         subprocess.check_call("scripts/kois-fetch-results {0}"
-                              .format(args.kicid), shell=True)
+                              .format(args.koi_id), shell=True)
 
     # logging.basicConfig(level=logging.INFO)
 
-    basedir = os.path.join("models", "{0}".format(args.kicid))
+    basedir = os.path.join("results", "{0}".format(args.koi_id))
 
     # Set up the output directory.
     outdir = args.outdir
@@ -168,11 +168,11 @@ if __name__ == "__main__":
 
         # Labels.
         axes[0].set_xlim(-4*dur, 4*dur)
-        axes[0].set_title("{0:02d}, period = {1} days"
-                          .format(i+1, P))
+        axes[0].set_title("KOI {0}, period = {1} days"
+                          .format(args.koi_id, P))
         axes[1].set_xlabel("time since transit")
 
-        fig.savefig(os.path.join(basedir, "final-lc-{0:02d}.png"
+        fig.savefig(os.path.join(basedir, "final-lc.png"
                                  .format(i+1)))
 
     # Plot the triangle plot.

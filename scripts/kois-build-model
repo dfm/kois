@@ -11,6 +11,14 @@ import matplotlib.pyplot as pl
 import kplr
 from kplr.ld import get_quad_coeffs
 
+try:
+    import kois
+    kois = kois
+except ImportError:
+    sys.path.insert(0, os.path.dirname(os.path.dirname(
+        os.path.abspath(__file__))))
+    import kois
+    kois = kois
 from kois.ld import QuadraticLimbDarkening
 from kois.kois import Model, KOILightCurve
 
