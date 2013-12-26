@@ -5,4 +5,4 @@ def run_process(kid):
     print("Running: {0}".format(cmd))
     subprocess.check_call(cmd, shell=True)
 
-map(run_process, [int(line.split()[0]) for line in open("targets/kois.txt")])
+map(run_process, [line.strip() for line in open("targets/kois.txt")])
