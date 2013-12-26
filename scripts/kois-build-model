@@ -64,7 +64,8 @@ if __name__ == "__main__":
     ldp.q1 = min(0.9, max(0.1, ldp.q1))
     ldp.q2 = min(0.9, max(0.1, ldp.q2))
     window_factor = args.window_factor
-    model = Model(ldp, epoch_tol=window_factor, period_tol=window_factor*3e-4)
+    model = Model("KOI {0}".format(koi_id), ldp, epoch_tol=window_factor,
+                  period_tol=window_factor*3e-4)
 
     # Download and trim the datasets.
     model.add_koi(koi.koi_period, koi.koi_time0bk % koi.koi_period,

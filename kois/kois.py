@@ -33,8 +33,9 @@ class KOILightCurve(LightCurve):
 
 class Model(object):
 
-    def __init__(self, ldp, epoch_tol=1.0, period_tol=7e-4, tol=1e-7,
+    def __init__(self, name, ldp, epoch_tol=1.0, period_tol=7e-4, tol=1e-7,
                  max_depth=4):
+        self.name = name
         self.ldp = ldp
         self.datasets = []
 
