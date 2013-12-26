@@ -4,109 +4,11 @@
 from __future__ import (division, print_function, absolute_import,
                         unicode_literals)
 
-__all__ = ["load_system", "LightCurve", "Model"]
+__all__ = ["LightCurve", "Model"]
 
-import logging
 import numpy as np
-
-import kplr
-from kplr.ld import get_quad_coeffs
-
 from bart.data import LightCurve
-
 from . import _kois
-from .ld import QuadraticLimbDarkening
-
-
-def load_system(kepid, lc_window_factor=4, sc_window_factor=4,
-                detrend_window_factor=1.5, min_dataset_size=10, poly_order=1,
-                ldp_nbins=500):
-    client = kplr.API()
-
-    logging.info("Getting the catalog parameters for KIC {0}"
-                 .format(kepid))
-    kois = sorted([k for k in client.star(kepid).kois
-                   if k.koi_disposition in ["CANDIDATE", "CONFIRMED"]],
-                  key=lambda k: k.kepoi_name)
-    if not len(kois):
-        raise RuntimeError("No KOIs listed in the catalog for ID '{0}'"
-                           .format(kepid))
-
-    # Set up the initial limb-darkening profile.
-    teff = kois[0].koi_steff
-    mu1, mu2 = get_quad_coeffs(teff if teff is not None else 5778)
-    ldp = QuadraticLimbDarkening(mu1, mu2, ldp_nbins)
-
-    # Hack to make sure that the parameters are physical.
-    ldp.q1 = min(0.9, max(0.1, ldp.q1))
-    ldp.q2 = min(0.9, max(0.1, ldp.q2))
-
-    # Set up the model.
-    model = Model(ldp, epoch_tol=sc_window_factor,
-                  period_tol=sc_window_factor*3e-4)
-
-    # Loop over KOIs and add the initial values to the model.
-    full_durations = np.array([])
-    for koi in kois:
-        # Parse the KOI parameters.
-        P = koi.koi_period
-        t0 = koi.koi_time0bk % P
-        ror = koi.koi_ror
-        b = koi.koi_impact
-
-        # Skip single transits.
-        if P < 0:
-            continue
-
-        # Convert the KOI duration to the b=0 duration that we need.
-        full_durations = np.append(full_durations, koi.koi_duration/24.)
-        tau = koi.koi_duration/24.
-        # tau = (koi.koi_duration/24.) / np.sqrt((1+ror)**2 - b*b)
-
-        # Add the KOI to the model.
-        model.add_koi(P, t0, tau, ror, b)
-
-    # Load the light curves.
-    logging.info("Loading datasets")
-    lcs = koi.get_light_curves()
-    datasets = []
-    for lc in lcs:
-        try:
-            data = lc.read()
-        except:
-            continue
-        m = data["SAP_QUALITY"] == 0
-        texp = (kplr.EXPOSURE_TIMES[1] if lc.sci_archive_class == "CLC"
-                else kplr.EXPOSURE_TIMES[0])
-        factor = (lc_window_factor if lc.sci_archive_class == "CLC"
-                  else sc_window_factor)
-        window = np.array([max(factor*d,
-                           lc_window_factor*d+5*kplr.EXPOSURE_TIMES[1]/86400.)
-                           for d in full_durations])
-        data = KOILightCurve(data["TIME"][m],
-                             data["PDCSAP_FLUX"][m],
-                             data["PDCSAP_FLUX_ERR"][m], texp=texp,
-                             K=5 if lc.sci_archive_class == "CLC" else 3)
-        datasets += (data.active_window(model.periods, model.epochs,
-                                        window)
-                     .autosplit())
-
-    # Remove datasets with not enough data points.
-    datasets = [d for d in datasets if len(d.time) > min_dataset_size]
-    if not len(datasets):
-        raise RuntimeError("No datasets survived the cuts.")
-    logging.info("{0} datasets were found and trimmed".format(len(datasets)))
-
-    # De-trend the data.
-    model.datasets += [d for d in datasets
-                       if d.remove_polynomial(model.periods, model.epochs,
-                                              detrend_window_factor
-                                              * full_durations, poly_order)]
-    logging.info("{0} datasets were de-trended".format(len(model.datasets)))
-    if not len(datasets):
-        raise RuntimeError("No datasets could be de-trended.")
-
-    return int(kois[0].kepoi_name.split(".")[0][1:]), model
 
 
 class KOILightCurve(LightCurve):
@@ -136,6 +38,7 @@ class Model(object):
         self.ldp = ldp
         self.datasets = []
 
+        self.fstar = 1.0
         self.periods = np.empty(0)
         self.epochs = np.empty(0)
         self.durations = np.empty(0)
@@ -150,15 +53,16 @@ class Model(object):
 
     @property
     def vector(self):
-        return np.concatenate(([self.ldp.q1, self.ldp.q2],
+        return np.concatenate(([self.fstar, self.ldp.q1, self.ldp.q2],
                                self.periods, self.epochs, self.durations,
                                self.rors, self.impacts))
 
     @vector.setter
     def vector(self, v):
-        self.ldp.q1, self.ldp.q2 = v[:2]
+        self.fstar = v[0]
+        self.ldp.q1, self.ldp.q2 = v[1:3]
         self.periods, self.epochs, self.durations, self.rors, self.impacts \
-            = v[2:].reshape([-1, len(self.periods)])
+            = v[3:].reshape([-1, len(self.periods)])
 
     def add_koi(self, period, epoch, duration, ror, impact):
         self.periods = np.append(self.periods, period)
@@ -176,7 +80,7 @@ class Model(object):
         mu1, mu2 = self.ldp.coeffs
         return _kois.light_curve(t, texp, self.periods, self.epochs,
                                  self.durations, self.rors, self.impacts,
-                                 mu1, mu2, self.tol, self.max_depth)
+                                 mu1, mu2, self.tol, self.max_depth)*self.fstar
 
     def lnlike(self):
         return sum([lc.lnlike(self.get_light_curve(lc.time, lc.K, lc.texp))
@@ -188,6 +92,8 @@ class Model(object):
             return -np.inf
 
         # Physical priors on other parameters.
+        if not 0 < self.fstar < 2:
+            return -np.inf
         if np.any(self.periods < 0):
             return -np.inf
         if (np.any(self.epochs < -self.periods) or
