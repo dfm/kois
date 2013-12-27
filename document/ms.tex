@@ -326,4 +326,25 @@ Winn, J.~N.\ 2010, \arxiv{1001.2010}
 
 \end{thebibliography}
 
+\appendix
+
+\section{Recursive exposure time integration}
+
+It is well known (Kipping, others, ASK BARCLAY) that integrating the
+exposure time when computing a generative light curve model makes a huge
+difference especially for short period orbits.
+Kipping argues for the use of a resampling technique.
+For computational efficiency and robustness to \emph{contact point
+discontinuities}, we developed and used an adaptive recursive algorithm.
+This algorithm refines the resampling grid around points where where second
+derivative of the light curve function is largest.
+This means that the base grid can be extremely coarse.
+
+The basic idea is that we have some function $f(t)$ that returns the
+instantaneous flux of the system at time $t$ but we would like to compute the
+integrated flux over an exposure time \texp
+\begin{eqnarray}
+f_\mathrm{int}(t_0) &=& \int_{t_0-\texp/2}^{t_0+\texp/2} f(t) \dd t
+\end{eqnarray}
+
 \end{document}
