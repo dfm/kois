@@ -344,7 +344,26 @@ The basic idea is that we have some function $f(t)$ that returns the
 instantaneous flux of the system at time $t$ but we would like to compute the
 integrated flux over an exposure time \texp
 \begin{eqnarray}
-f_\mathrm{int}(t_0) &=& \int_{t_0-\texp/2}^{t_0+\texp/2} f(t) \dd t
+f_\mathrm{int}(t_0;\texp) &=& \int_{t_0-\texp/2}^{t_0+\texp/2} f(t) \dd t
+    \quad.
 \end{eqnarray}
+Following Kipping, this can be approximated as
+\begin{eqnarray}
+f_\mathrm{int}(t_0;\texp) &\approx&
+    \frac{f(t_0-\texp/3)+f(t_0)+f(t_0+\texp/3)}{3} \quad.
+\end{eqnarray}
+We extend this by recursively defining this approximation as
+\begin{eqnarray}
+f_\mathrm{int}(t_0;\texp) &\approx&
+    \frac{f_\mathrm{int}(t_0-\texp/3;\texp/3)+f_\mathrm{int}(t_0;\texp/3)
+          +f_\mathrm{int}(t_0+\texp/3;\texp/3)}{3}
+\end{eqnarray}
+where the recursive depth is set by a tolerance on
+\begin{eqnarray}
+\left | f(t_0-\texp/3)-2\,f(t_0)+f(t_0+\texp/3) \right | &\le& \epsilon
+\end{eqnarray}
+where $\epsilon$ is a free parameter quantifying the required accuracy of the
+method.
+
 
 \end{document}
