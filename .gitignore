@@ -8,3 +8,7 @@ models
 venv
 build
 *.crunch.local
+boost_*
+dist
+targets
+results
