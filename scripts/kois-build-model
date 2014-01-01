@@ -68,8 +68,8 @@ if __name__ == "__main__":
     pickle.dump(model, open(os.path.join(outdir, "model.pkl"), "wb"), -1)
     ndim = len(model.vector)
 
-    min_nodes = config.get("remote", "min_nodes")
-    ppn = config.get("remote", "ppn")
+    min_nodes = int(config.get("remote", "min_nodes"))
+    ppn = int(config.get("remote", "ppn"))
 
     nodes = int(max(np.ceil(ndim/ppn), min_nodes))
     nwalkers = 2 * ppn * nodes
