@@ -8,7 +8,7 @@ __all__ = ["LightCurve", "Model"]
 
 import numpy as np
 from bart.data import LightCurve
-from . import _kois
+from .lightcurve import _kois
 
 
 class KOILightCurve(LightCurve):

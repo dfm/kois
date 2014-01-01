@@ -5,13 +5,15 @@ import numpy
 from setuptools import setup, Extension
 
 includes = [
-    "kois",
+    "kois/lightcurve",
+    "/share/apps/boost/1.49.0/intel/serial/include",
     "boost_1_55_0",
     numpy.get_include(),
 ]
 
-kois = Extension("kois._kois", ["kois/_kois.c", "kois/lightcurve.c",
-                                "kois/quad.cpp"],
+kois = Extension("kois.lightcurve._kois", ["kois/lightcurve/_kois.c",
+                                           "kois/lightcurve/lightcurve.c",
+                                           "kois/lightcurve/quad.cpp"],
                  include_dirs=includes)
 
 setup(
