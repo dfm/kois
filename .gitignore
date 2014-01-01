@@ -12,3 +12,4 @@ boost_*
 dist
 targets
 results
+*.cfg

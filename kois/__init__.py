@@ -2,4 +2,4 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import absolute_import
-from .kois import *
+from .build_model import build_model

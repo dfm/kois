@@ -4,35 +4,23 @@
 from __future__ import (division, print_function, absolute_import,
                         unicode_literals)
 
-__all__ = ["db_connection", "init_db", "load_kois"]
+__all__ = ["init_db", "load_kois"]
 
-import os
 import kplr
 import sqlite3
-from contextlib import closing
 
 
-def database_path():
-    return os.environ.get("KPLR_RESULTS_DIR",
-                          os.path.join("results", "kois.db"))
-
-
-def db_connection():
-    return sqlite3.connect(database_path())
-
-
-def init_db():
-    with closing(db_connection()) as db:
+def init_db(dbpath):
+    with sqlite3.connect(dbpath) as db:
         db.cursor().executescript(SCHEMA)
-        db.commit()
 
 
-def load_kois():
+def load_kois(dbpath):
     # Get the KOI listing from the Exoplanet Archive.
     client = kplr.API()
     kois = client.kois(where="koi_pdisposition+like+'CANDIDATE'")
 
-    with closing(db_connection()) as db:
+    with sqlite3.connect(dbpath) as db:
         columns = ["kepoi_name", "kepid", "koi_disposition",
                    "koi_period", "koi_period_err1", "koi_period_err2",
                    "koi_time0bk", "koi_time0bk_err1", "koi_time0bk_err2",
@@ -43,9 +31,11 @@ def load_kois():
         db.cursor().executemany("INSERT INTO kois({0}) VALUES ({1})"
                                 .format(",".join(columns),
                                 ",".join(["?" for i in range(len(columns))])),
-                                [map(lambda c: getattr(k, c), columns)
+                                [map(lambda c: getattr(k, c)
+                                     if c != "kepoi_name"
+                                     else unicode(float(k.kepoi_name[1:])),
+                                     columns)
                                  for k in kois])
-        db.commit()
 
 
 SCHEMA = """
@@ -74,14 +64,13 @@ create table kois(
     koi_steff_err1 real,
     koi_steff_err2 real,
     submitted text,
-    secret text,
     remote_id text,
-    completed text,
     fetched text,
     plotted text,
     comments text,
     nwalkers integer,
     steps integer,
+    burnin integer,
     acor_time real,
     map_fstar real,
     map_q1 real,
@@ -117,10 +106,3 @@ create table kois(
     kplr_impact_err2 real
 );
 """
-
-
-if __name__ == "__main__":
-    print("Setting up schema")
-    init_db()
-    print("Loading KOIs")
-    load_kois()
