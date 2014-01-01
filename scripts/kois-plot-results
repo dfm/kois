@@ -5,74 +5,59 @@ import os
 import sys
 import kplr
 import h5py
+import acor
+import sqlite3
 import logging
 import triangle
 import subprocess
 import numpy as np
 import cPickle as pickle
+from datetime import datetime
 import matplotlib.pyplot as pl
+from ConfigParser import ConfigParser
 from matplotlib.ticker import MaxNLocator
+
 
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Build a KOI model")
     parser.add_argument("koi_id", help="The KOI number")
+    parser.add_argument("config", help="Path to the configuration file")
     parser.add_argument("-b", "--burnin", default=0, type=int,
                         help="The number of steps to discard")
     parser.add_argument("-t", "--thin", default=None, type=int,
                         help="The number of steps to skip when thinning")
-    parser.add_argument("-o", "--outdir", default=None,
-                        help="The directory where the output files will be "
-                        "written")
     parser.add_argument("--triangle", action="store_true",
                         help="Make the triangle plot")
     parser.add_argument("-f", "--fetch", action="store_true")
     args = parser.parse_args()
 
+    # Parse the configuration file.
+    config = ConfigParser()
+    config.read(args.config)
+
     if args.fetch:
-        subprocess.check_call("scripts/kois-fetch-results {0}"
-                              .format(args.koi_id), shell=True)
+        subprocess.check_call("scripts/kois-fetch-results {0} {1}"
+                              .format(args.koi_id, args.config), shell=True)
 
-    # logging.basicConfig(level=logging.INFO)
-
-    basedir = os.path.join("results", "{0}".format(args.koi_id))
-
-    # Set up the output directory.
-    outdir = args.outdir
-    if outdir is None:
-        outdir = basedir
-    try:
-        os.makedirs(outdir)
-    except os.error:
-        logging.info("Output directory '{0}' exists".format(outdir))
+    basedir = os.path.join(config.get("local", "basepath"), args.koi_id)
+    outdir = basedir
 
     # Load the pickled model.
     logging.info("Loading the precomputed model.")
     model = pickle.load(open(os.path.join(basedir, "model.pkl")))
-    # columns = [c.strip()
-    #            for c in open(os.path.join(basedir, "mcmc.txt"))
-    #            .readline()[1:].split()]
-    n = len(model.periods)
-    columns = (["f", "g1", "g2"] +
-               ["p{0}".format(i+1) for i in range(n)] +
-               ["t{0}".format(i+1) for i in range(n)] +
-               ["d{0}".format(i+1) for i in range(n)] +
-               ["r{0}".format(i+1) for i in range(n)] +
-               ["b{0}".format(i+1) for i in range(n)])
+    columns = ["$f_\star$", "$q_1$", "$q_2$", "$P$", "$t_0$", r"$\tau$",
+               "$z$", "$b$"]
 
     # Load the results.
     print("Loading samples")
-    # samples = np.loadtxt(os.path.join(basedir, "mcmc.txt"))
-    # niter, nwalkers = int(samples[-1, 0])+1, int(samples[-1, 1])+1
-    # chain = samples.reshape((niter, nwalkers, -1))
-    # chain = chain[:, :, 2:]
     with h5py.File(os.path.join(basedir, "mcmc.h5"), "r") as f:
         i = f.attrs["iteration"]
         chain = f["samples"][:, :i, :]
         lnprob = f["lnprob"][:, :i]
     nwalkers, niter, ndim = chain.shape
 
-    import acor
+    # Compute the autocorrelation time.
     tau = np.array([acor.acor(chain[:, args.burnin:, ind])[0]
                     for ind in range(ndim)])
     print("acor time: {0}".format(tau))
@@ -106,73 +91,122 @@ if __name__ == "__main__":
     print("MAP: ")
     print(map_vector)
     model.vector = map_vector
-    map_periods = np.array(model.periods)
-    map_epochs = np.array(model.epochs)
-    map_durations = np.array(model.durations)
+    map_period = model.periods[0]
+    map_epoch = model.epochs[0]
+    map_duration = model.durations[0]
+
+    # Compute quantiles.
+    q = []
+    tmp = chain[:, args.burnin:, :]
+    for samples in tmp.reshape((nwalkers*tmp.shape[1], -1)).T:
+        quant = triangle.quantile(samples, [0.16, 0.5, 0.84])
+        q.append((quant[1], quant[2]-quant[1], quant[0]-quant[1]))
+
+    # Update the database.
+    cols, values = zip(*({
+        "plotted": datetime.now(),
+        "nwalkers": nwalkers,
+        "steps": niter,
+        "burnin": args.burnin,
+        "acor_fstar": tau[0],
+        "acor_q1": tau[1],
+        "acor_q2": tau[2],
+        "acor_period": tau[3],
+        "acor_epoch": tau[4],
+        "acor_duration": tau[5],
+        "acor_ror": tau[6],
+        "acor_impact": tau[7],
+        "map_fstar": map_vector[0],
+        "map_q1": map_vector[1],
+        "map_q2": map_vector[2],
+        "map_period": map_vector[3],
+        "map_epoch": map_vector[4],
+        "map_duration": map_vector[5],
+        "map_ror": map_vector[6],
+        "map_impact": map_vector[7],
+        "kplr_fstar": q[0][0],
+        "kplr_fstar_err1": q[0][1],
+        "kplr_fstar_err2": q[0][2],
+        "kplr_q1": q[1][0],
+        "kplr_q1_err1": q[1][1],
+        "kplr_q1_err2": q[1][2],
+        "kplr_q2": q[2][0],
+        "kplr_q2_err1": q[2][1],
+        "kplr_q2_err2": q[2][2],
+        "kplr_period": q[3][0],
+        "kplr_period_err1": q[3][1],
+        "kplr_period_err2": q[3][2],
+        "kplr_epoch": q[4][0],
+        "kplr_epoch_err1": q[4][1],
+        "kplr_epoch_err2": q[4][2],
+        "kplr_duration": q[5][0],
+        "kplr_duration_err1": q[5][1],
+        "kplr_duration_err2": q[5][2],
+        "kplr_ror": q[6][0],
+        "kplr_ror_err1": q[6][1],
+        "kplr_ror_err2": q[6][2],
+        "kplr_impact": q[7][0],
+        "kplr_impact_err1": q[7][1],
+        "kplr_impact_err2": q[7][2]
+    }.items()))
+    with sqlite3.connect(config.get("local", "database")) as conn:
+        c = conn.cursor()
+        c.execute("update kois set {0} where kepoi_name=?"
+                  .format(",".join(map(lambda c: "{0}=?".format(c), columns))),
+                  values+(args.koi_id,))
 
     # Plotting predictions.
     print("Plotting predictions")
-    nplanets = len(model.periods)
-    figs, axes_list = zip(*[pl.subplots(2, 1, figsize=(6, 6), sharex=True)
-                            for i in range(nplanets)])
-    [figure.subplots_adjust(left=0.17, bottom=0.1, right=0.9, top=0.9,
-                            wspace=0.05, hspace=0.05) for figure in figs]
+    fig, axes = pl.subplots(2, 1, figsize=(6, 6), sharex=True)
+    fig.subplots_adjust(left=0.17, bottom=0.1, right=0.9, top=0.9,
+                        wspace=0.05, hspace=0.05)
     thin = args.thin if args.thin is not None else int(np.min(tau))
     print("Thinning by {0}".format(thin))
     thinned_chain = chain[:, args.burnin::thin, :]
     thinned_chain = thinned_chain.reshape((nwalkers*thinned_chain.shape[1],
                                            -1))
+
+    lc = kplr.EXPOSURE_TIMES[1]/86400.0
+    sc = kplr.EXPOSURE_TIMES[0]/86400.0
+    t = np.linspace(-4*map_duration, 4*map_duration, 10000)
     for j, ind in enumerate(np.random.randint(len(thinned_chain), size=100)):
         model.vector = thinned_chain[ind]
 
-        for i, (P, t0, dur, fig, axes) in enumerate(zip(map_periods,
-                                                        map_epochs,
-                                                        map_durations, figs,
-                                                        axes_list)):
-            # Plot the models.
-            t = np.linspace(-4*dur, 4*dur, 10000)
-            lc = kplr.EXPOSURE_TIMES[1]/86400.0
-            sc = kplr.EXPOSURE_TIMES[0]/86400.0
+        if j == 0:
+            # Plot the folded datasets.
+            hp = 0.5 * map_period
+            for d in model.datasets:
+                ax = axes[0]
+                if d.texp < 0.01:
+                    ax = axes[1]
+                ax.plot((d.time-map_epoch+hp) % map_period-hp, d.flux, ".k",
+                        alpha=0.3, ms=3)
 
-            if j == 0:
-                # Plot the folded datasets.
-                hp = 0.5 * P
-                for d in model.datasets:
-                    ax = axes[0]
-                    if d.texp < 0.01:
-                        ax = axes[1]
-                    ax.plot((d.time-t0+hp) % P - hp, d.flux, ".k", alpha=0.3,
-                            ms=3)
+        if j == 99:
+            model.vector = map_vector
+            axes[0].plot(t, model.get_light_curve(t+map_epoch, K=10, texp=lc),
+                         "b", alpha=1, lw=1)
+            axes[1].plot(t, model.get_light_curve(t+map_epoch, K=3, texp=sc),
+                         "b", alpha=1, lw=1)
+            model.vector = thinned_chain[ind]
 
-            if j == 99:
-                model.vector = map_vector
-                axes[0].plot(t, model.get_light_curve(t+t0, K=10, texp=lc),
-                             "b", alpha=1, lw=1)
-                axes[1].plot(t, model.get_light_curve(t+t0, K=3, texp=sc), "b",
-                             alpha=1, lw=1)
-                model.vector = thinned_chain[ind]
+        # Plot the models.
+        axes[0].plot(t, model.get_light_curve(t+map_epoch, K=10, texp=lc), "r",
+                     alpha=0.1)
+        axes[1].plot(t, model.get_light_curve(t+map_epoch, K=3, texp=sc), "r",
+                     alpha=0.1)
 
-            axes[0].plot(t, model.get_light_curve(t+t0, K=10, texp=lc), "r",
-                         alpha=0.1)
-            axes[1].plot(t, model.get_light_curve(t+t0, K=3, texp=sc), "r",
-                         alpha=0.1)
+    # Set the y-axis limits.
+    for ax in axes:
+        ylim = min(ax.get_ylim()[0] - 1, -1e-3)
+        ax.set_ylim(1+1.2*ylim, 1-0.6*ylim)
 
-    for i, (P, dur, fig, axes) in enumerate(zip(map_periods,
-                                                model.initial_durations, figs,
-                                                axes_list)):
-        # Set the y-axis limits.
-        for ax in axes:
-            ylim = min(ax.get_ylim()[0] - 1, -1e-3)
-            ax.set_ylim(1+1.2*ylim, 1-0.6*ylim)
-
-        # Labels.
-        axes[0].set_xlim(-4*dur, 4*dur)
-        axes[0].set_title("KOI {0}, period = {1} days"
-                          .format(args.koi_id, P))
-        axes[1].set_xlabel("time since transit")
-
-        fig.savefig(os.path.join(basedir, "final-lc.png"
-                                 .format(i+1)))
+    # Labels.
+    axes[0].set_xlim(-4*map_duration, 4*map_duration)
+    axes[0].set_title("KOI {0}, period = {1} days".format(args.koi_id,
+                                                          map_period))
+    axes[1].set_xlabel("time since transit")
+    fig.savefig(os.path.join(basedir, "final-lc.png"))
 
     # Plot the triangle plot.
     if not args.triangle:
