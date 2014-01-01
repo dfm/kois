@@ -87,6 +87,7 @@ if __name__ == "__main__":
 
     # Find the MAP sample.
     w, ind = np.unravel_index(np.argmax(lnprob), lnprob.shape)
+    map_lnprob = lnprob[w, ind]
     map_vector = np.array(chain[w, ind, :])
     print("MAP: ")
     print(map_vector)
@@ -216,5 +217,6 @@ if __name__ == "__main__":
     cs = np.concatenate((thinned_chain, np.atleast_2d(
         lnprob[:, args.burnin::thin].flatten()).T), axis=1)
     fig = triangle.corner(cs, labels=columns+["lnprob"],
-                          quantiles=[0.16, 0.5, 0.84])
+                          quantiles=[0.16, 0.5, 0.84],
+                          truths=np.append(map_vector, map_lnprob))
     fig.savefig(os.path.join(outdir, "triangle.png"))
