@@ -4,9 +4,11 @@
 import os
 import sys
 import kplr
+import sqlite3
 import logging
 import numpy as np
 import cPickle as pickle
+from datetime import datetime
 import matplotlib.pyplot as pl
 from ConfigParser import ConfigParser
 
@@ -37,12 +39,8 @@ if __name__ == "__main__":
                         help="The order of polynomial to use for de-trending")
     parser.add_argument("--plots", action="store_true",
                         help="Make some basic figures")
-    parser.add_argument("--pbs", action="store_true",
-                        help="Generate the PBS script")
     parser.add_argument("--submit", action="store_true",
                         help="Submit the job to the cluster")
-    parser.add_argument("-c", "--cluster", default="butinah",
-                        help="The cluster name")
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO)
     koi_id = args.koi_id
@@ -102,8 +100,7 @@ if __name__ == "__main__":
         # Copy the precomputed model.
         files = map(lambda f: os.path.join(outdir, f),
                     ["model.pkl", "job.pbs"])
-        remote_path = os.path.join(config.get("remote", "basepath"),
-                                   str(koi_id))
+        remote_path = os.path.join(config.get("remote", "basepath"), koi_id)
         cmd = ("scp -r {0} {1}:{2}"
                .format(" ".join(files),
                        config.get("remote", "hostname"), remote_path))
@@ -117,6 +114,13 @@ if __name__ == "__main__":
         logging.info("Running command:")
         logging.info("    {0}".format(cmd))
         remote_id = subprocess.check_output(cmd, shell=True)
+
+        # Update the database.
+        with sqlite3.connect(config.get("local", "database")) as conn:
+            c = conn.cursor()
+            c.execute("update kois set submitted=?, remote_id=? "
+                      "where kepoi_name=?",
+                      (datetime.now(), remote_id, koi_id))
 
     logging.info("Generating folded light curve plots with initial model")
 
