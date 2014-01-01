@@ -1,12 +1,10 @@
-import os
 import subprocess
-# from multiprocessing import Pool
 
 
 def run_process(kid):
     try:
-        cmd = ("scripts/kois-plot-results {0} --burnin 20000 "
-               "--triangle").format(kid)
+        cmd = ("scripts/kois-plot-results {0} {1} --burnin 20000 "
+               "--triangle").format(kid, "template.cfg")
         print("Running: {0}".format(cmd))
         subprocess.check_call(cmd, shell=True)
 
@@ -19,7 +17,6 @@ def run_process(kid):
         return kid
 
 
-# pool = Pool()
 results = map(run_process,
               [float(line.strip()) for line in open("targets/kois.txt")])
 print("\n".join(map(str, [r for r in results if r is not None])))

@@ -152,7 +152,7 @@ if __name__ == "__main__":
     with sqlite3.connect(config.get("local", "database")) as conn:
         c = conn.cursor()
         c.execute("update kois set {0} where kepoi_name=?"
-                  .format(",".join(map(lambda c: "{0}=?".format(c), columns))),
+                  .format(",".join(map(lambda c: "{0}=?".format(c), cols))),
                   values+(args.koi_id,))
 
     # Plotting predictions.
