@@ -65,26 +65,27 @@ for koi in kois:
             np.atleast_2d(load_koi_samples(koi, nz))))
 
 # Set up the histogram.
-bins = 10**np.linspace(-3.0, 0.0, 40)
-bins[0] = 0.0
+bins = np.linspace(0.0, 0.1, 40)
 values = np.random.rand(len(bins) - 1)
-values /= np.sum(values*(bins[1:] - bins[:-1]))
+values /= np.sum(values)
 values = values[:-1]
 
 # Pre-compute the GP kernel and factorize.
 # a2 = 1e-4
 # l2 = 0.01 ** 2
-# x = 0.5*(bins[:-1]+bins[1:])
+# x = 0.5*(np.log10(bins[:-1])+np.log10(bins[1:]))
 # K = a2*np.exp(-(x[:, None] - x[None, :]) ** 2 / l2)
 # factor = cho_factor(K)
+norm = 10.0
 
 
 def lnlike(v):
     ll = 0.0
+    vtmp = np.concatenate(([1.0], v, [1.0]))
     for R, z in full_catalog.itervalues():
         r = R[:, None, None] * z[None, :, :]
         inds = np.digitize(r.flatten(), bins)
-        pr = v[inds].reshape(r.shape)*(z*z)[None, :, :]
+        pr = vtmp[inds].reshape(r.shape)*(z*z)[None, :, :]
         pr = np.sum(pr, axis=2)
         if np.any(pr == 0):
             return -np.inf
@@ -100,11 +101,11 @@ def lnprior(v):
         return -np.inf
     return 0.0
     # return -0.5 * np.dot(v, cho_solve(factor, v))
+    # return -norm * np.sum((v[1:] - v[:-1])**2)
 
 
 def lnprob(p):
-    v = np.append(p,
-                  (bins[-1]-bins[-2])*(1.0-np.sum(p*(bins[1:-1]-bins[:-2]))))
+    v = np.append(p, 1.0-np.sum(p))
     lp = lnprior(v)
     if not np.isfinite(lp):
         return -np.inf
@@ -123,7 +124,7 @@ sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, pool=pool)
 
 outfn = "rdist_samples.txt"
 open(outfn, "w").write("# bins edges: {0}\n".format(bins))
-for i, (p, lp, s) in enumerate(sampler.sample(p0, iterations=5000)):
+for i, (p, lp, s) in enumerate(sampler.sample(p0, iterations=10000)):
     if i % 10 == 0:
         print(i, np.mean(sampler.acceptance_fraction))
         with open(outfn, "a") as f:
