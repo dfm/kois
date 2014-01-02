@@ -65,17 +65,18 @@ for koi in kois:
             np.atleast_2d(load_koi_samples(koi, nz))))
 
 # Set up the histogram.
-bins = np.linspace(0, 1.0, 40)
+bins = 10**np.linspace(-3.0, 0.0, 40)
+bins[0] = 0.0
 values = np.random.rand(len(bins) - 1)
-values /= np.sum(values)
+values /= np.sum(values*(bins[1:] - bins[:-1]))
 values = values[:-1]
 
 # Pre-compute the GP kernel and factorize.
-a2 = 1e-4
-l2 = 0.01 ** 2
-x = 0.5*(bins[:-1]+bins[1:])
-K = a2*np.exp(-(x[:, None] - x[None, :]) ** 2 / l2)
-factor = cho_factor(K)
+# a2 = 1e-4
+# l2 = 0.01 ** 2
+# x = 0.5*(bins[:-1]+bins[1:])
+# K = a2*np.exp(-(x[:, None] - x[None, :]) ** 2 / l2)
+# factor = cho_factor(K)
 
 
 def lnlike(v):
@@ -102,7 +103,8 @@ def lnprior(v):
 
 
 def lnprob(p):
-    v = np.append(p, 1.0 - np.sum(p))
+    v = np.append(p,
+                  (bins[-1]-bins[-2])*(1.0-np.sum(p*(bins[1:-1]-bins[:-2]))))
     lp = lnprior(v)
     if not np.isfinite(lp):
         return -np.inf
@@ -120,7 +122,7 @@ pool = multiprocessing.Pool()
 sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, pool=pool)
 
 outfn = "rdist_samples.txt"
-open(outfn, "w").close()
+open(outfn, "w").write("# bins edges: {0}\n".format(bins))
 for i, (p, lp, s) in enumerate(sampler.sample(p0, iterations=5000)):
     if i % 10 == 0:
         print(i, np.mean(sampler.acceptance_fraction))
