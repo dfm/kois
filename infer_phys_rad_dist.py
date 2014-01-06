@@ -48,7 +48,7 @@ def load_koi_samples(row, size=500):
 print("Loading catalog")
 dressing_catalog = load_dressing_stars()
 kois = load_cool_kois()
-nz = 100
+nz = 200
 full_catalog = defaultdict(lambda: [None, np.empty((0, nz))])
 for koi in kois:
     # Draw some samples from the Dressing stellar radius.
@@ -56,7 +56,7 @@ for koi in kois:
     if full_catalog[k][0] is None:
         row = dressing_catalog[str(k)]
         R = row[3:6]
-        Rs = R[0] + 0.5*sum(R[1:])*np.random.randn(200)
+        Rs = R[0] + 0.5*sum(R[1:])*np.random.randn(250)
         full_catalog[k][0] = Rs
 
     # Grab some samples from the KOI MCMC chain.
