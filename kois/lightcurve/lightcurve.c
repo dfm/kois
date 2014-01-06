@@ -4,6 +4,8 @@
 #include "lightcurve.h"
 #include "quad.h"
 
+#define EPS (1e-8)
+
 double lc_evaluate_one (double t, double p, double t0, double tau, double ror,
                         double b, double mu1, double mu2)
 {
@@ -37,15 +39,16 @@ double lc_integrate (double t, double f0, double texp, int np,
            fp = lc_evaluate (tp, np, periods, epochs, durations,
                              rors, impacts, mu1, mu2),
            fm = lc_evaluate (tm, np, periods, epochs, durations,
-                             rors, impacts, mu1, mu2);
-    double d = fabs(fp - 2*f0 + fm);
+                             rors, impacts, mu1, mu2),
+           d = fabs(fp - 2*f0 + fm);
+
     if (d > tol && depth < max_depth) {
         fp = lc_integrate(tp, fp, st, np, periods, epochs, durations,
-                          rors, impacts, mu1, mu2, tol, depth+1, max_depth);
+                          rors, impacts, mu1, mu2, tol, max_depth, depth+1);
         f0 = lc_integrate(t, f0, st, np, periods, epochs, durations,
-                          rors, impacts, mu1, mu2, tol, depth+1, max_depth);
+                          rors, impacts, mu1, mu2, tol, max_depth, depth+1);
         fm = lc_integrate(tm, fm, st, np, periods, epochs, durations,
-                          rors, impacts, mu1, mu2, tol, depth+1, max_depth);
+                          rors, impacts, mu1, mu2, tol, max_depth, depth+1);
     }
     return (f0+fp+fm) / 3.0;
 }
@@ -62,6 +65,6 @@ void lightcurve (int n, double *t, double texp, int np,
         f0 = lc_evaluate(t[i], np, periods, epochs, durations, rors, impacts,
                          mu1, mu2);
         f[i] = lc_integrate(t[i], f0, texp, np, periods, epochs, durations,
-                            rors, impacts, mu1, mu2, tol, 0, max_depth);
+                            rors, impacts, mu1, mu2, tol, max_depth, 0);
     }
 }
