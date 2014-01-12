@@ -89,10 +89,10 @@ if __name__ == "__main__":
         import subprocess
 
         # Make sure that the remote directory exists.
-        cmd = ("ssh {0} \"mkdir -p {1}/{2}\""
+        cmd = ("ssh {0} \"mkdir -p {1}\""
                .format(config.get("remote", "hostname"),
-                       config.get("remote", "basepath"),
-                       koi_id))
+                       os.path.join(config.get("remote", "basepath"),
+                                    koi_id)))
         logging.info("Running command:")
         logging.info("    {0}".format(cmd))
         subprocess.check_call(cmd, shell=True)
