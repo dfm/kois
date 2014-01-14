@@ -251,6 +251,33 @@ final contact.
 \item{Integration over exposure time}
 \end{itemize}
 
+\section{Sampling method}
+
+We sampled the posterior probability in equation SOMEEQN using the affine
+invariant ensemble sampler (CITE: GW, emcee).
+This method is perfect for this project because it tends to require very
+little tuning even when applied to new datasets.
+
+\paragraph{Ensemble specifications}
+We run with 48 walkers on 24 cores on the BuTinah cluster at NYUAD.
+
+\paragraph{Initialization}
+We start sampling in a \emph{tiny} isotropic Gaussian ball (HOW BIG) centered
+at the parameters given in the KOI catalog.
+Then, we run 2000 iterations of MCMC and re-sample the walkers in a similarly
+time Gaussian ball around the maximum probability point seen in that run.
+
+\paragraph{Production chain}
+Finally we run the production chain---re-estimating the integrated
+auto-correlation time for each parameter---until we have at least $128 \times
+N_\mathrm{walkers}$ independent samples for ever parameter.
+
+\paragraph{Analysis of convergence}
+
+
+\section{Results}
+
+
 \section{The empirical radius distribution}
 
 The problem of determining the empirical distribution of exoplanet radii
