@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import os
 import sqlite3
 import logging
 import argparse
@@ -21,13 +22,13 @@ if __name__ == "__main__":
     config.read(args.config)
 
     # Set up the output directory.
-    outdir = config.get("local", "basepath")
+    outdir = os.path.join(config.get("local", "basepath"), koi_id)
 
     # Copy the precomputed model.
-    files = map(lambda f: "{0}:{1}/{2}/{3}"
+    files = map(lambda f: "{0}:{1}"
                 .format(config.get("remote", "hostname"),
-                        config.get("remote", "basepath"),
-                        koi_id, f),
+                        os.path.join(config.get("remote", "basepath"),
+                                     koi_id, f)),
                 ["model.pkl", "mcmc.h5"])
     cmd = "scp {0} {1}".format(" ".join(files), outdir)
     logging.info("Running command:")
