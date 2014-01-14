@@ -143,6 +143,7 @@ double ldlc (double p, double z, double u1, double u2)
 #ifdef VERBOSE
                 printf("Case 12 - FIXME\n");
 #endif
+                printf("Case 12 - FIXME\n");
                 // FIXME.
                 ld = 0.0;
             } else {

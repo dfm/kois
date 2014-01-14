@@ -40,7 +40,7 @@ double lc_integrate (double t, double f0, double texp, int np,
                              rors, impacts, mu1, mu2),
            fm = lc_evaluate (tm, np, periods, epochs, durations,
                              rors, impacts, mu1, mu2),
-           d = fabs(fp - 2*f0 + fm);
+           d = fabs((fp - 2*f0 + fm) / (fp - fm));
 
     if (d > tol && depth < max_depth) {
         fp = lc_integrate(tp, fp, st, np, periods, epochs, durations,

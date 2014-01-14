@@ -366,7 +366,8 @@ f_\mathrm{int}(t_0;\texp) &\approx&
 \end{eqnarray}
 where the recursive depth is set by a tolerance on
 \begin{eqnarray}
-\left | f(t_0-\texp/3)-2\,f(t_0)+f(t_0+\texp/3) \right | &\le& \epsilon
+\left | \frac{f(t_0-\texp/3)-2\,f(t_0)+f(t_0+\texp/3)}
+             {f(t_0-\texp/3)-f(t_0+\texp/3)} \right | &\le& \epsilon
 \end{eqnarray}
 where $\epsilon$ is a free parameter quantifying the required accuracy of the
 method.
