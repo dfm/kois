@@ -24,7 +24,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Build a KOI model")
     parser.add_argument("koi_id", help="The KOI number")
     parser.add_argument("config", help="Path to the configuration file")
-    parser.add_argument("-b", "--burnin", default=0, type=int,
+    parser.add_argument("-b", "--burnin", default=None, type=int,
                         help="The number of steps to discard")
     parser.add_argument("-t", "--thin", default=None, type=int,
                         help="The number of steps to skip when thinning")
@@ -47,6 +47,7 @@ if __name__ == "__main__":
     # Load the pickled model.
     logging.info("Loading the precomputed model.")
     model = pickle.load(open(os.path.join(basedir, "model.pkl")))
+    print("FIXME: tol and max_depth")
     model.tol = 0.1
     model.max_depth = 2
     columns = ["$f_\star$", "$q_1$", "$q_2$", "$P$", "$t_0$", r"$\tau$",
@@ -60,12 +61,24 @@ if __name__ == "__main__":
         lnprob = f["lnprob"][:, :i]
     nwalkers, niter, ndim = chain.shape
 
+    # Estimate the burn-in time.
+    if args.burnin is None:
+        print("Estimating burn-in")
+        n = int(2**np.floor(np.log2(chain.shape[1])))
+        tau = integrated_time(np.mean(chain[:, :n], axis=0), axis=0)
+        maxtau = int(np.max(tau))
+        print("maxtau = {0}".format(maxtau))
+        burnin = 10*maxtau
+    else:
+        burnin = args.burnin
+
     # Compute the autocorrelation time.
-    tau = integrated_time(np.mean(chain[:, args.burnin:, :], axis=0), axis=0)
-    # tau = np.array([acor.acor(chain[:, args.burnin:, ind])[0]
-    #                 for ind in range(ndim)])
+    arg = np.mean(chain[:, burnin:, :], axis=0)
+    arg = arg[:int(2**np.floor(np.log2(len(arg))))]
+    print(arg.shape)
+    tau = integrated_time(arg, axis=0)
     print("acor time: {0}".format(tau))
-    print("n ind samples: {0}".format((niter - args.burnin) / tau))
+    print("n ind samples: {0}".format((niter - burnin) / tau))
 
     # Plot the time series.
     print("Making time series plots")
@@ -80,11 +93,11 @@ if __name__ == "__main__":
         ax.plot(chain[:, :, i].T, color="k", alpha=0.3)
         ax.set_ylabel(c)
         ax.yaxis.set_major_locator(MaxNLocator(4))
-        ax.axvline(args.burnin, color="#888888", alpha=0.5, lw=3)
+        ax.axvline(burnin, color="#888888", alpha=0.5, lw=3)
 
     axes[-1].plot(lnprob.T, color="k", alpha=0.3)
     axes[-1].yaxis.set_major_locator(MaxNLocator(4))
-    axes[-1].axvline(args.burnin, color="#888888", alpha=0.5, lw=3)
+    axes[-1].axvline(burnin, color="#888888", alpha=0.5, lw=3)
     axes[-1].set_xlim(0, niter)
     axes[-1].set_xlabel("steps")
     pl.savefig(os.path.join(outdir, "time.png"))
@@ -102,7 +115,7 @@ if __name__ == "__main__":
 
     # Compute quantiles.
     q = []
-    tmp = chain[:, args.burnin:, :]
+    tmp = chain[:, burnin:, :]
     for samples in tmp.reshape((nwalkers*tmp.shape[1], -1)).T:
         quant = triangle.quantile(samples, [0.16, 0.5, 0.84])
         q.append((quant[1], quant[2]-quant[1], quant[0]-quant[1]))
@@ -112,7 +125,7 @@ if __name__ == "__main__":
         "plotted": datetime.now(),
         "nwalkers": nwalkers,
         "steps": niter,
-        "burnin": args.burnin,
+        "burnin": burnin,
         "acor_fstar": tau[0],
         "acor_q1": tau[1],
         "acor_q2": tau[2],
@@ -167,7 +180,7 @@ if __name__ == "__main__":
                         wspace=0.05, hspace=0.05)
     thin = args.thin if args.thin is not None else int(np.min(tau))
     print("Thinning by {0}".format(thin))
-    thinned_chain = chain[:, args.burnin::thin, :]
+    thinned_chain = chain[:, burnin::thin, :]
     thinned_chain = thinned_chain.reshape((nwalkers*thinned_chain.shape[1],
                                            -1))
 
@@ -219,7 +232,7 @@ if __name__ == "__main__":
 
     print("Making triangle plot")
     cs = np.concatenate((thinned_chain, np.atleast_2d(
-        lnprob[:, args.burnin::thin].flatten()).T), axis=1)
+        lnprob[:, burnin::thin].flatten()).T), axis=1)
     fig = triangle.corner(cs, labels=columns+["lnprob"],
                           quantiles=[0.16, 0.5, 0.84],
                           truths=np.append(map_vector, map_lnprob))
