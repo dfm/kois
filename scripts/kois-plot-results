@@ -66,15 +66,13 @@ if __name__ == "__main__":
         print("Estimating burn-in")
         t = np.linspace(200, 20000, 200)
         t = t[t < chain.shape[1]]
-        print(t, chain.shape)
         taus = [np.max(integrated_time(np.mean(chain[:, :int(j)], axis=0),
                                        axis=0, fast=True))
                 for j in t]
         taus = np.array(taus)
         taus -= np.median(taus)
         taus /= taus[0]
-        ti = int(1+2*np.sum(taus[1:]))
-        print(ti)
+        ti = abs(int(1+2*np.sum(taus[1:])))
         burnin = 10*int(t[ti])
         print("Burn-in = {0}".format(burnin))
 
@@ -83,7 +81,6 @@ if __name__ == "__main__":
         pl.plot(t, np.exp(-t/ti), "--r")
         pl.gca().axhline(0)
         pl.savefig(os.path.join(basedir, "burnin.png"))
-        assert 0
     else:
         burnin = args.burnin
 
