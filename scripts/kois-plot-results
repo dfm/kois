@@ -72,8 +72,14 @@ if __name__ == "__main__":
         taus = np.array(taus)
         taus -= np.median(taus)
         taus /= taus[0]
-        ti = abs(int(1+2*np.sum(taus[1:])))
-        burnin = 10*int(t[ti])
+
+        ti = np.argmin(taus)
+        inds = np.arange(max(0, ti-10), min(chain.shape[1], ti+10))
+        ti = abs(int(np.sum(taus[inds]*inds)/np.sum(taus[inds])))
+        print(ti, abs(int(1+2*np.sum(taus[1:]))))
+
+        # ti = abs(int(1+2*np.sum(taus[1:])))
+        burnin = int(t[ti])
         print("Burn-in = {0}".format(burnin))
 
         pl.plot(np.arange(len(taus)), taus, "-ok")

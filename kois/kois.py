@@ -13,7 +13,7 @@ from .lightcurve import _kois
 
 class KOILightCurve(LightCurve):
 
-    def remove_polynomial(self, periods, epochs, durations, order=1):
+    def remove_polynomial(self, periods, epochs, durations, order=1, l2=0.0):
         t = self.time
         m = np.ones_like(t, dtype=bool)
         for p, t0, dt in zip(periods, epochs, durations):
@@ -23,7 +23,11 @@ class KOILightCurve(LightCurve):
         if np.sum(m) < 10:
             return False
 
-        p = np.polyfit(t[m], self.flux[m], order, w=self.ivar[m])
+        e = np.sqrt(self.ivar[m])
+        A = e[:, None]*np.vander(t[m], order+1)
+        A = np.concatenate((A, l2*np.ones((1, order+1))), axis=0)
+        y = np.append(e*self.flux[m], 0.0)
+        p, residuals, rank, sing_vals = np.linalg.lstsq(A, y)
         self.flux /= np.polyval(p, t)
         return True
 
