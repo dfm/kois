@@ -64,19 +64,32 @@ if __name__ == "__main__":
     # Estimate the burn-in time.
     if args.burnin is None:
         print("Estimating burn-in")
-        n = int(2**np.floor(np.log2(chain.shape[1])))
-        tau = integrated_time(np.mean(chain[:, :n], axis=0), axis=0)
-        maxtau = int(np.max(tau))
-        print("maxtau = {0}".format(maxtau))
-        burnin = 10*maxtau
+        t = np.linspace(200, 20000, 200)
+        t = t[t < chain.shape[1]]
+        print(t, chain.shape)
+        taus = [np.max(integrated_time(np.mean(chain[:, :int(j)], axis=0),
+                                       axis=0, fast=True))
+                for j in t]
+        taus = np.array(taus)
+        taus -= np.median(taus)
+        taus /= taus[0]
+        ti = int(1+2*np.sum(taus[1:]))
+        print(ti)
+        burnin = 10*int(t[ti])
+        print("Burn-in = {0}".format(burnin))
+
+        pl.plot(np.arange(len(taus)), taus, "-ok")
+        t = np.linspace(0, len(t), 5000)
+        pl.plot(t, np.exp(-t/ti), "--r")
+        pl.gca().axhline(0)
+        pl.savefig(os.path.join(basedir, "burnin.png"))
+        assert 0
     else:
         burnin = args.burnin
 
     # Compute the autocorrelation time.
-    arg = np.mean(chain[:, burnin:, :], axis=0)
-    arg = arg[:int(2**np.floor(np.log2(len(arg))))]
-    print(arg.shape)
-    tau = integrated_time(arg, axis=0)
+    tau = integrated_time(np.mean(chain[:, burnin:, :], axis=0), axis=0,
+                          fast=True)
     print("acor time: {0}".format(tau))
     print("n ind samples: {0}".format((niter - burnin) / tau))
 

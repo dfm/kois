@@ -3,9 +3,10 @@ import subprocess
 
 
 def run_process(kid):
+    print("STARTING {0}".format(kid))
     try:
-        cmd = ("scripts/kois-plot-results {0} {1} --burnin 2000 "
-               "--triangle").format(kid, "template.cfg")
+        cmd = ("scripts/kois-plot-results {0} {1} --triangle"
+               .format(kid, "template.cfg"))
         print("Running: {0}".format(cmd))
         subprocess.check_call(cmd, shell=True)
 
