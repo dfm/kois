@@ -13,7 +13,7 @@ from .lightcurve import _kois
 
 class KOILightCurve(LightCurve):
 
-    def remove_polynomial(self, periods, epochs, durations, order=1, l2=0.0):
+    def remove_polynomial(self, periods, epochs, durations, order=1, l2=1.0):
         t = self.time
         m = np.ones_like(t, dtype=bool)
         for p, t0, dt in zip(periods, epochs, durations):

@@ -52,8 +52,7 @@ def build_model(koi_id, window_factor=4.0, detrend_factor=1.5, poly_order=1):
                            for d in model.durations])
         data = KOILightCurve(data["TIME"][m],
                              data["PDCSAP_FLUX"][m],
-                             data["PDCSAP_FLUX_ERR"][m], texp=texp,
-                             K=5 if lc.sci_archive_class == "CLC" else 3)
+                             data["PDCSAP_FLUX_ERR"][m], texp=texp)
         datasets += (data.active_window(model.periods, model.epochs,
                                         window)
                      .autosplit())
