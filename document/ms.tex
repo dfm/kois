@@ -137,11 +137,28 @@ cadence) for a given target and selected all data points within 4 transit
 durations---as determined by the KOI catalog---of a transit.
 
 \paragraph{Preconditioning}
-Then, we mask the data within 1.5 transit durations and fit the maximum
-likelihood line to the remaining data points.
-Finally, we divide the full window by this model to generate a ``de-trended''
-light curve.
-This procedure has been applied successfully in the literature (Carter ETC
+These light curves still include some systematic noise and stellar
+variability.
+To remove this signal, we mask the data within 1.5 transit durations and find
+the maximum likelihood cubic polynomial trend conditioned on the remaining
+measurements.
+In order to avoid over-fitting, we apply a weak L2 regularization to the
+likelihood:
+\begin{eqnarray}
+\ell(\bvec{c}) &=& -\frac{1}{2}\sum_{n=1}^N \frac{[f_n - m(t_n; \bvec{c})]^2}
+                                                 {\sigma_n^2}
+                   -\frac{\lambda}{2} \left | \bvec{c} \right |^2
+\end{eqnarray}
+where
+\begin{eqnarray}
+m(t_n;\bvec{c}) &=& c_0 + c_1\,t_n + c_2\,t_n^2 + c_3\,t_n^3 \quad.
+\end{eqnarray}
+In practice, after some extremely scientific experiments, we chose to use
+$\lambda = 1$ for every light curve.
+
+Finally, we divide the full window of observations by the predicted trend
+$m(t_n;\bvec{c})$ to produce a ``de-trended'' light curve.
+A similar procedure has been applied successfully in the literature (Carter ETC
 CITE) and it should be less destructive to transit signals than alternative
 techniques like median filtering and ``robust'' regression.
 
@@ -170,15 +187,27 @@ This is a reasonable assumption because TODO.
 
 \paragraph{Generative model}
 For this project, we assume a quadratic limb darkened light curve model
-following Mandel \& Agol (CITE) and integrate over exposure time (Kipping
-CITE, Appendix XXXX).
+following Mandel \& Agol (CITE) and integrate over exposure time using an
+adaptive algorithm described in Appendix (XXXX).
 Since we don't want to be dependent on specific stellar parameters and since
-we would like to make it easy to apply any new stellar catalogs, we don't use
-physical orbits.
+we would like to make it easy to apply any new constraints on the stellar
+parameters, we don't require physical orbits.
 Instead, we parameterize the orbit using only ``observable'' parameters.
+This is a somewhat controversial choice as we will discuss in Section (YYYY).
+
 In particular, we use, for the star, the mean stellar flux \fstar, and the
-parameters \qone\ and \qtwo\ of a quadratic limb darkening profile
-(parameterized following Kipping CITE).
+parameters \qone\ and \qtwo\ of a quadratic limb darkening profile.
+The limb darkening law is parameterized following Kipping (CITE) and the
+coefficients are related to the standard parameterization
+\begin{eqnarray}
+I(\mu) &=& 1 - u_1\,(1-\mu) - u_2\,(1-\mu)^2 \\
+\mu &=& \sqrt{1-r^2}
+\end{eqnarray}
+by
+\begin{eqnarray}
+q_1 &=& (u_1 + u_2)^2 \\
+q_2 &=& \frac{u_1}{2\,(u_1+u_2)} \quad.
+\end{eqnarray}
 For each companion, we parameterize the orbit using period \period, epoch
 \epoch, transit duration \duration, radius ratio \ror, and impact parameter
 \impact.
