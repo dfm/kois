@@ -32,10 +32,10 @@ if __name__ == "__main__":
     parser.add_argument("--window_factor", default=4, type=float,
                         help="The number of transit durations in the data "
                              "window")
-    parser.add_argument("--detrend_factor", default=1.4, type=float,
+    parser.add_argument("--detrend_factor", default=1.1, type=float,
                         help="The number of transit durations to mask when "
                              "de-trending")
-    parser.add_argument("--poly_order", default=3, type=int,
+    parser.add_argument("--poly_order", default=5, type=int,
                         help="The order of polynomial to use for de-trending")
     parser.add_argument("--plots", action="store_true",
                         help="Make some basic figures")
