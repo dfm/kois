@@ -45,17 +45,18 @@ def build_model(koi_id, window_factor=4.0, detrend_factor=1.5, poly_order=1):
         except:
             continue
         m = data["SAP_QUALITY"] == 0
-        texp = (kplr.EXPOSURE_TIMES[1] if lc.sci_archive_class == "CLC"
-                else kplr.EXPOSURE_TIMES[0])
+        is_lc = lc.sci_archive_class == "CLC"
+        texp = kplr.EXPOSURE_TIMES[1] if is_lc else kplr.EXPOSURE_TIMES[0]
         window = np.array([max(window_factor*d,
                            window_factor*d+5*kplr.EXPOSURE_TIMES[1]/86400.)
                            for d in model.durations])
         data = KOILightCurve(data["TIME"][m],
-                             data["PDCSAP_FLUX"][m],
-                             data["PDCSAP_FLUX_ERR"][m], texp=texp)
+                             data["SAP_FLUX"][m],
+                             data["SAP_FLUX_ERR"][m], texp=texp)
+        data.is_lc = is_lc
         datasets += (data.active_window(model.periods, model.epochs,
                                         window)
-                     .autosplit())
+                     .autosplit(ttol=1.5))
 
     # Remove datasets with not enough data points.
     datasets = [d for d in datasets if len(d.time) > 10]
@@ -68,7 +69,8 @@ def build_model(koi_id, window_factor=4.0, detrend_factor=1.5, poly_order=1):
                        if d.remove_polynomial(model.periods, model.epochs,
                                               detrend_factor
                                               * model.durations,
-                                              poly_order)]
+                                              poly_order,
+                                              nmin=10 if d.is_lc else 30)]
     logging.info("{0} datasets were de-trended".format(len(model.datasets)))
     if not len(datasets):
         raise RuntimeError("No datasets could be de-trended.")

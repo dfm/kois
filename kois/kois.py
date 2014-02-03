@@ -34,7 +34,11 @@ class KOILightCurve(LightCurve):
         A = np.concatenate((A, l2*np.ones((1, order+1))), axis=0)
         y = np.append(e*self.flux[m], 0.0)
         p, residuals, rank, sing_vals = np.linalg.lstsq(A, y)
-        self.flux /= np.polyval(p, t)
+        model = np.polyval(p, t)
+        if np.any(model == 0):
+            return False
+
+        self.flux /= model
         return True
 
     def lnlike(self, light_curve):
