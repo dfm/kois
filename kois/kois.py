@@ -13,14 +13,20 @@ from .lightcurve import _kois
 
 class KOILightCurve(LightCurve):
 
-    def remove_polynomial(self, periods, epochs, durations, order=1, l2=1.0):
+    def remove_polynomial(self, periods, epochs, durations, order=1, l2=1.0,
+                          nmin=10):
         t = self.time
         m = np.ones_like(t, dtype=bool)
+        counts = [0, 0]
         for p, t0, dt in zip(periods, epochs, durations):
             hp = 0.5 * p
-            m[np.abs((t - t0 + hp) % p - hp) < dt] = 0
+            d = (t - t0 + hp) % p - hp
+            m0 = np.abs(d) < dt
+            counts[0] += np.sum(d[m0] < 0)
+            counts[1] += np.sum(d[m0] > 0)
+            m[m0] = 0
 
-        if np.sum(m) < 10:
+        if counts[0] < nmin or counts[1] < nmin:
             return False
 
         e = np.sqrt(self.ivar[m])
